@@ -8,7 +8,9 @@ import androidx.compose.ui.unit.dp
 import com.equipo1.controlasistencia.repository.AuthRepository
 
 @Composable
-fun RegisterScreen() {
+fun RegisterScreen(
+    onRegisterSuccess: () -> Unit
+) {
 
     val authRepository = AuthRepository()
 
@@ -90,10 +92,11 @@ fun RegisterScreen() {
                     rol
                 ) { success, error ->
                     cargando = false
-                    mensaje = if (success) {
-                        "Registro exitoso"
+                    if (success) {
+                        mensaje = "Registro exitoso"
+                        onRegisterSuccess()
                     } else {
-                        error ?: "Error desconocido"
+                        mensaje = error ?: "Error desconocido, intentalo de nuevo mas tarde"
                     }
                 }
             },

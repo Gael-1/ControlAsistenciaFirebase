@@ -1,72 +1,81 @@
 package com.equipo1.controlasistencia.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.equipo1.controlasistencia.repository.AuthRepository
 
 @Composable
 fun LoginScreen(
+    onLoginSuccess: (String, String) -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
-
     val authRepository = AuthRepository()
 
     var correo by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var mensaje by remember { mutableStateOf("") }
     var cargando by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
 
         Text(
-            text = "Iniciar Sesión",
-            style = MaterialTheme.typography.headlineMedium
+            text = "CONTROL DE ASISTENCIA",
+            style = MaterialTheme.typography.headlineMedium,
+            fontSize = 24.sp
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(48.dp))
+
 
         OutlinedTextField(
             value = correo,
             onValueChange = { correo = it },
-            label = { Text("Correo") },
-            modifier = Modifier.fillMaxWidth()
+            label = { Text("Correo electrónico / Matrícula") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
 
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Contraseña") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
+
         Button(
             onClick = {
-                cargando = true
-                authRepository.login(correo, password) { success, error ->
-                    cargando = false
-                    mensaje = if (success) {
-                        "Login correcto"
-                    } else {
-                        error ?: "Error desconocido"
-                    }
-                }
+                // Entra a todas las pantallas sin pedir usuario para pruebas recuerda cambiarllo despues
+                onLoginSuccess("profesor", "Profe Juan")
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Ingresar")
+            Text("iniciar secion")
         }
+
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -74,14 +83,18 @@ fun LoginScreen(
             CircularProgressIndicator()
         }
 
+        if (error.isNotEmpty()) {
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(text = mensaje)
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        TextButton(onClick = { onNavigateToRegister() }) {
-            Text("¿No tienes cuenta? Regístrate")
+        TextButton(onClick = onNavigateToRegister) {
+            Text("¿No tienes cuenta? Registrarse")
         }
     }
 }
