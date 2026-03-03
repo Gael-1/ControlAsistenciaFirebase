@@ -6,15 +6,21 @@ import com.equipo1.controlasistencia.screens.*
 
 @Composable
 fun AppNavegacion() {
+
     var pantallaActual by rememberSaveable { mutableStateOf("login") }
-    var grupoSeleccionado by rememberSaveable { mutableStateOf("") }
+
+    var grupoSeleccionadoId by rememberSaveable { mutableStateOf("") }
+    var grupoSeleccionadoNombre by rememberSaveable { mutableStateOf("") }
+
     var nombreProfesor by rememberSaveable { mutableStateOf("Profe Juan") }
 
     when (pantallaActual) {
+
         "login" -> LoginScreen(
             onLoginSuccess = { rol, nombre ->
                 nombreProfesor = nombre
-                pantallaActual = if (rol == "profesor") "home" else "alumno_home"
+                pantallaActual =
+                    if (rol == "profesor") "home" else "alumno_home"
             },
             onNavigateToRegister = {
                 pantallaActual = "register"
@@ -29,47 +35,74 @@ fun AppNavegacion() {
 
         "home" -> HomeProfesorScreen(
             nombreProfesor = nombreProfesor,
-            onGrupoClick = { grupo ->
-                grupoSeleccionado = grupo
-                pantallaActual = "lista_alumnos"
-            },
-            onCreateGrupo = {
-                // aquí va la pantalla de crear grupo
+            onGrupoClick = { grupoId, nombreGrupo ->
+
+                // 🔥 Validación para evitar errores
+                if (grupoId.isNotBlank()) {
+                    grupoSeleccionadoId = grupoId
+                    grupoSeleccionadoNombre = nombreGrupo
+                    pantallaActual = "lista_alumnos"
+                }
             }
         )
 
-        "lista_alumnos" -> ListaAlumnosScreen(
-            nombreGrupo = grupoSeleccionado,
-            onTomarAsistencia = {
-                pantallaActual = "tomar_asistencia"
-            },
-            onVerReportes = {
-                pantallaActual = "reportes"
-            },
-            onBack = {
+        "lista_alumnos" -> {
+
+            // 🔥 Protección extra
+            if (grupoSeleccionadoId.isBlank()) {
                 pantallaActual = "home"
+            } else {
+                ListaAlumnosScreen(
+                    grupoId = grupoSeleccionadoId,
+                    nombreGrupo = grupoSeleccionadoNombre,
+                    onTomarAsistencia = {
+                        pantallaActual = "tomar_asistencia"
+                    },
+                    onVerReportes = {
+                        pantallaActual = "reportes"
+                    },
+                    onBack = {
+                        pantallaActual = "home"
+                    }
+                )
             }
-        )
+        }
 
-        "tomar_asistencia" -> TomarAsistenciaScreen(
-            nombreGrupo = grupoSeleccionado,
-            fecha = "22/02/2026",
-            onGuardar = {
-                pantallaActual = "lista_alumnos"
-            },
-            onBack = {
-                pantallaActual = "lista_alumnos"
-            }
-        )
+        "tomar_asistencia" -> {
 
-        "reportes" -> ReportesScreen(
-            nombreGrupo = grupoSeleccionado,
-            onBack = {
-                pantallaActual = "lista_alumnos"
-            },
-            onGuardarReporte = {
-                pantallaActual = "lista_alumnos"
+            if (grupoSeleccionadoId.isBlank()) {
+                pantallaActual = "home"
+            } else {
+                TomarAsistenciaScreen(
+                    grupoId = grupoSeleccionadoId,
+                    nombreGrupo = grupoSeleccionadoNombre,
+                    onBack = {
+                        pantallaActual = "lista_alumnos"
+                    }
+                )
             }
-        )
+        }
+
+        "reportes" -> {
+
+            if (grupoSeleccionadoId.isBlank()) {
+                pantallaActual = "home"
+            } else {
+                ReportesScreen(
+                    nombreGrupo = grupoSeleccionadoNombre,
+                    onBack = {
+                        pantallaActual = "lista_alumnos"
+                    },
+                    onGuardarReporte = {
+                        pantallaActual = "lista_alumnos"
+                    }
+                )
+            }
+        }
     }
+}
+
+@Composable
+fun TomarAsistenciaScreen(grupoId: String, nombreGrupo: String, onBack: () -> Unit) {
+    TODO("Not yet implemented")
 }
