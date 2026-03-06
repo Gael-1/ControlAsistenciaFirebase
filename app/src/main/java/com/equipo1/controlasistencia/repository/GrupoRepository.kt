@@ -26,16 +26,23 @@ class GrupoRepository {
             }
     }
 
-    fun obtenerGrupos(onResult: (List<Pair<String, String>>) -> Unit) {
+    // Cambia esto en GrupoRepository.kt
+    fun escucharGrupos(onResult: (List<Pair<String, String>>) -> Unit) {
         val profesorId = auth.currentUser?.uid ?: return
 
+        // Usamos addSnapshotListener en lugar de .get()
         db.collection("grupos")
             .whereEqualTo("profesorId", profesorId)
-            .get()
-            .addOnSuccessListener { result ->
-                val lista = result.documents.map {
-                    Pair(it.id, it.getString("nombre") ?: "")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    // Aquí podrías loguear el error para saber si es por "Permissions"
+                    return@addSnapshotListener
                 }
+
+                val lista = snapshot?.documents?.map {
+                    Pair(it.id, it.getString("nombre") ?: "")
+                } ?: emptyList()
+
                 onResult(lista)
             }
     }

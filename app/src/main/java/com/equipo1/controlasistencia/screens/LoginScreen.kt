@@ -73,7 +73,7 @@ fun LoginScreen(
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("iniciar secion")
+            Text("iniciar sesion")
         }
 
 
