@@ -17,12 +17,12 @@ fun LoginScreen(
     onLoginSuccess: (String, String) -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
-    val authRepository = AuthRepository()
+    val authRepository = remember { AuthRepository() }
 
     var correo by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var cargando by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
+    var errorMsg by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -31,7 +31,6 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-
         Text(
             text = "CONTROL DE ASISTENCIA",
             style = MaterialTheme.typography.headlineMedium,
@@ -40,18 +39,16 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(48.dp))
 
-
         OutlinedTextField(
             value = correo,
             onValueChange = { correo = it },
-            label = { Text("Correo electrónico / Matrícula") },
+            label = { Text("Correo electrónico") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-
 
         OutlinedTextField(
             value = password,
@@ -65,33 +62,39 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-
         Button(
             onClick = {
-                // Entra a todas las pantallas sin pedir usuario para pruebas recuerda cambiarllo despues
-                onLoginSuccess("profesor", "Profe Juan")
+                if (correo.isNotBlank() && password.isNotBlank()) {
+                    cargando = true
+                    errorMsg = ""
+                    authRepository.login(correo, password) { success, mensaje, rol, nombre ->
+                        cargando = false
+                        if (success) {
+                            onLoginSuccess(rol ?: "profesor", nombre ?: "Usuario")
+                        } else {
+                            errorMsg = mensaje ?: "Error al iniciar sesión"
+                        }
+                    }
+                } else {
+                    errorMsg = "Por favor llena todos los campos"
+                }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !cargando
         ) {
-            Text("iniciar sesion")
+            if (cargando) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text("Iniciar Sesión")
+            }
         }
 
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (cargando) {
-            CircularProgressIndicator()
-        }
-
-        if (error.isNotEmpty()) {
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error
-            )
+        if (errorMsg.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = errorMsg, color = MaterialTheme.colorScheme.error)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
 
         TextButton(onClick = onNavigateToRegister) {
             Text("¿No tienes cuenta? Registrarse")

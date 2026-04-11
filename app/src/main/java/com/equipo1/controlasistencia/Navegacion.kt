@@ -44,20 +44,29 @@ fun AppNavegacion() {
             }
         )
 
-        "home" -> HomeProfesorScreen(
-            nombreProfesor = nombreUsuarioGlobal,
-            onGrupoClick = { grupoId, nombreGrupo ->
-                if (grupoId.isNotBlank()) {
-                    grupoSeleccionadoId = grupoId
-                    grupoSeleccionadoNombre = nombreGrupo
-                    pantallaActual = "lista_alumnos"
-                }
-            },
-            onBack = {
+        "home" -> {
+            // Verificamos si realmente hay un usuario antes de cargar la pantalla
+            val user = auth.currentUser
+            if (user != null) {
+                HomeProfesorScreen(
+                    nombreProfesor = if (nombreUsuarioGlobal.isBlank()) "Profesor" else nombreUsuarioGlobal,
+                    onGrupoClick = { grupoId, nombreGrupo ->
+                        if (grupoId.isNotBlank()) {
+                            grupoSeleccionadoId = grupoId
+                            grupoSeleccionadoNombre = nombreGrupo
+                            pantallaActual = "lista_alumnos"
+                        }
+                    },
+                    onBack = {
+                        auth.signOut() // Cerramos sesión por seguridad al salir
+                        pantallaActual = "login"
+                    }
+                )
+            } else {
+                // Si por algo se pierde la sesión, regresamos al login
                 pantallaActual = "login"
             }
-        )
-
+        }
         "lista_alumnos" -> {
             if (grupoSeleccionadoId.isBlank()) {
                 pantallaActual = "home"

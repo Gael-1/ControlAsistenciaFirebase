@@ -28,7 +28,7 @@ fun ReportesScreen(
             "Ana López" to 85,
             "Luis Torres" to 100,
             "María Gómez" to 75,
-            "Pedro Ruiz" to 95
+            "Pedro Ruiz" to 95,
         )
     }
 
