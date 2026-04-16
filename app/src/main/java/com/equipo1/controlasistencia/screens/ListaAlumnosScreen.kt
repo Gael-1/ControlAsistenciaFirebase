@@ -1,18 +1,27 @@
 package com.equipo1.controlasistencia.screens
 
 import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Assessment // Icono más apropiado para reportes
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.equipo1.controlasistencia.repository.AlumnoRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -20,19 +29,20 @@ import com.equipo1.controlasistencia.repository.AlumnoRepository
 fun ListaAlumnosScreen(
     grupoId: String,
     nombreGrupo: String,
+    esAdmin: Boolean,
     onTomarAsistencia: () -> Unit,
     onVerReportes: () -> Unit,
     onBack: () -> Unit
 ) {
     val alumnoRepository = remember { AlumnoRepository() }
-
     var alumnos by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var showDialog by remember { mutableStateOf(false) }
     var nombreAlumno by remember { mutableStateOf("") }
     var cargando by remember { mutableStateOf(false) }
     var errorMensaje by remember { mutableStateOf<String?>(null) }
 
-    // Cargar alumnos al iniciar
+    val appleGrayBackground = Color(0xFFF2F2F7)
+
     LaunchedEffect(grupoId) {
         cargando = true
         alumnoRepository.obtenerAlumnos(grupoId) { lista ->
@@ -42,139 +52,156 @@ fun ListaAlumnosScreen(
     }
 
     Scaffold(
+        containerColor = appleGrayBackground,
         topBar = {
-            TopAppBar(
-                title = { Text(nombreGrupo) },
+            CenterAlignedTopAppBar(
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(nombreGrupo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Lista de Clase", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    }
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.padding(8.dp).clip(CircleShape).background(Color.White)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás", tint = Color.Black)
                     }
                 },
                 actions = {
                     IconButton(onClick = onVerReportes) {
-                        Icon(Icons.Default.Assessment, contentDescription = "Ver Reportes")
+                        Icon(Icons.Default.Assessment, contentDescription = "Reportes", tint = Color(0xFF007AFF))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = appleGrayBackground)
             )
         },
         floatingActionButton = {
-            // Cambiamos a un FAB extendido para que sea más claro
-            ExtendedFloatingActionButton(
-                onClick = onTomarAsistencia,
-                icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
-                text = { Text("Asistencia") }
-            )
+            if (!esAdmin) {
+                ExtendedFloatingActionButton(
+                    onClick = onTomarAsistencia,
+                    containerColor = Color.Black,
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(20.dp),
+                    icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
+                    text = { Text("Asistencia", fontWeight = FontWeight.Bold) }
+                )
+            }
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
         ) {
-            Text(text = "Lista de Alumnos", style = MaterialTheme.typography.headlineSmall)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { showDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(12.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Inscribir Nuevo Alumno")
+            if (esAdmin) {
+                Button(
+                    onClick = { showDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF007AFF)),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = ButtonDefaults.buttonElevation(2.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Inscribir Nuevo Alumno", fontWeight = FontWeight.SemiBold)
+                }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             if (cargando) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-
-            if (alumnos.isEmpty() && !cargando) {
-                Text(
-                    text = "No hay alumnos registrados en este grupo.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), color = Color.Black)
             }
 
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
+                item {
+                    Text(
+                        "ESTUDIANTES (${alumnos.size})",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+                    )
+                }
+
                 items(alumnos) { alumno ->
-                    Card(
+                    Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color.White,
+                        shadowElevation = 1.dp
                     ) {
-                        Text(
-                            text = alumno.second,
+                        Row(
                             modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF2F2F7)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = Color.DarkGray, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Text(
+                                text = alumno.second,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    // Dialog para crear alumno con detección de errores
     if (showDialog) {
         AlertDialog(
-            onDismissRequest = {
-                showDialog = false
-                errorMensaje = null
-            },
+            onDismissRequest = { showDialog = false; errorMensaje = null },
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         if (nombreAlumno.isNotBlank()) {
                             cargando = true
                             alumnoRepository.agregarAlumno(grupoId, nombreAlumno) { success, error ->
                                 if (success) {
-                                    // Recargar lista tras guardar
                                     alumnoRepository.obtenerAlumnos(grupoId) { alumnos = it }
                                     nombreAlumno = ""
                                     showDialog = false
-                                    errorMensaje = null
                                 } else {
-                                    errorMensaje = error ?: "Error al conectar con Firebase"
-                                    Log.e("FirebaseError", "Error: $error")
+                                    errorMensaje = error
                                 }
                                 cargando = false
                             }
                         }
-                    },
-                    enabled = !cargando
+                    }
                 ) {
-                    Text(if (cargando) "Guardando..." else "Guardar")
+                    Text("Inscribir", fontWeight = FontWeight.Bold, color = Color(0xFF007AFF))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text("Cancelar") }
+                TextButton(onClick = { showDialog = false }) { Text("Cancelar", color = Color.Red) }
             },
-            title = { Text("Registrar Alumno") },
+            title = { Text("Nuevo Estudiante", fontWeight = FontWeight.Bold) },
             text = {
-                Column {
-                    OutlinedTextField(
-                        value = nombreAlumno,
-                        onValueChange = { nombreAlumno = it },
-                        label = { Text("Nombre Completo") },
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = errorMensaje != null
-                    )
-                    if (errorMensaje != null) {
-                        Text(
-                            text = errorMensaje!!,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
-            }
+                OutlinedTextField(
+                    value = nombreAlumno,
+                    onValueChange = { nombreAlumno = it },
+                    label = { Text("Nombre Completo") },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = errorMensaje != null
+                )
+            },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = Color.White
         )
     }
 }

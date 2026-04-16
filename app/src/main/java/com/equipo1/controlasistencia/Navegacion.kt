@@ -15,12 +15,15 @@ import androidx.compose.ui.unit.dp
 import com.equipo1.controlasistencia.screens.*
 import com.google.accompanist.permissions.isGranted
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 
 @Composable
 fun AppNavegacion() {
-    // 1. Definimos auth y nombre de forma global al inicio (Esto quita los rojos)
     val auth = remember { FirebaseAuth.getInstance() }
     var nombreUsuarioGlobal by rememberSaveable { mutableStateOf("") }
+    var rolUsuarioGlobal by rememberSaveable { mutableStateOf("") } // Guardamos el rol para lógica interna
 
     var pantallaActual by rememberSaveable { mutableStateOf("login") }
     var grupoSeleccionadoId by rememberSaveable { mutableStateOf("") }
@@ -30,8 +33,14 @@ fun AppNavegacion() {
 
         "login" -> LoginScreen(
             onLoginSuccess = { rol, nombre ->
-                nombreUsuarioGlobal = nombre // Guardamos el nombre real
-                pantallaActual = if (rol == "profesor") "home" else "alumno_home"
+                nombreUsuarioGlobal = nombre
+                rolUsuarioGlobal = rol
+                // Redirección según rol
+                pantallaActual = when (rol) {
+                    "escolar" -> "home_escolar"
+                    "profesor" -> "home"
+                    else -> "alumno_home"
+                }
             },
             onNavigateToRegister = {
                 pantallaActual = "register"
@@ -44,8 +53,24 @@ fun AppNavegacion() {
             }
         )
 
+        // --- ROL ESCOLAR (Administrador) ---
+        "home_escolar" -> {
+            HomeEscolarScreen(
+                nombreAdmin = nombreUsuarioGlobal,
+                onLogout = {
+                    auth.signOut()
+                    pantallaActual = "login"
+                },
+                onVerDetalleGrupo = { grupoId, nombreGrupo ->
+                    grupoSeleccionadoId = grupoId
+                    grupoSeleccionadoNombre = nombreGrupo
+                    pantallaActual = "lista_alumnos" // Reutilizamos pantalla
+                }
+            )
+        }
+
+        // --- ROL PROFESOR ---
         "home" -> {
-            // Verificamos si realmente hay un usuario antes de cargar la pantalla
             val user = auth.currentUser
             if (user != null) {
                 HomeProfesorScreen(
@@ -58,60 +83,53 @@ fun AppNavegacion() {
                         }
                     },
                     onBack = {
-                        auth.signOut() // Cerramos sesión por seguridad al salir
+                        auth.signOut()
                         pantallaActual = "login"
                     }
                 )
             } else {
-                // Si por algo se pierde la sesión, regresamos al login
                 pantallaActual = "login"
             }
         }
+
         "lista_alumnos" -> {
             if (grupoSeleccionadoId.isBlank()) {
-                pantallaActual = "home"
+                pantallaActual = if (rolUsuarioGlobal == "escolar") "home_escolar" else "home"
             } else {
                 ListaAlumnosScreen(
                     grupoId = grupoSeleccionadoId,
                     nombreGrupo = grupoSeleccionadoNombre,
+                    esAdmin = rolUsuarioGlobal == "escolar", // Para mostrar/ocultar botones
                     onTomarAsistencia = { pantallaActual = "tomar_asistencia" },
                     onVerReportes = { pantallaActual = "reportes" },
-                    onBack = { pantallaActual = "home" }
+                    onBack = {
+                        pantallaActual = if (rolUsuarioGlobal == "escolar") "home_escolar" else "home"
+                    }
                 )
             }
         }
 
         "tomar_asistencia" -> {
-            if (grupoSeleccionadoId.isBlank()) {
-                pantallaActual = "home"
-            } else {
-                TomarAsistenciaScreen(
-                    grupoId = grupoSeleccionadoId,
-                    nombreGrupo = grupoSeleccionadoNombre,
-                    onBack = { pantallaActual = "lista_alumnos" }
-                )
-            }
+            TomarAsistenciaScreen(
+                grupoId = grupoSeleccionadoId,
+                nombreGrupo = grupoSeleccionadoNombre,
+                onBack = { pantallaActual = "lista_alumnos" }
+            )
         }
 
         "reportes" -> {
-            if (grupoSeleccionadoId.isBlank()) {
-                pantallaActual = "home"
-            } else {
-                ReportesScreen(
-                    nombreGrupo = grupoSeleccionadoNombre,
-                    onBack = { pantallaActual = "lista_alumnos" },
-                    onGuardarReporte = { pantallaActual = "lista_alumnos" }
-                )
-            }
+            ReportesScreen(
+                nombreGrupo = grupoSeleccionadoNombre,
+                onBack = { pantallaActual = "lista_alumnos" },
+                onGuardarReporte = { pantallaActual = "lista_alumnos" }
+            )
         }
 
+        // --- ROL ALUMNO ---
         "alumno_home" -> {
-            // ✅ Eliminamos 'val nombreUsuario = ""' de aquí para usar la global
             AlumnoHomeScreen(
                 nombreAlumno = nombreUsuarioGlobal,
-                onEscanearClick = {
-                    pantallaActual = "scanner_alumno"
-                },
+                onEscanearClick = { pantallaActual = "scanner_alumno" },
                 onLogout = {
                     auth.signOut()
                     pantallaActual = "login"
@@ -123,7 +141,6 @@ fun AppNavegacion() {
             CameraPermissionHandler(
                 onPermissionGranted = {
                     ScannerScreen(
-                        // ✅ Ahora 'auth' sí existe porque se definió al inicio
                         alumnoId = auth.currentUser?.uid ?: "",
                         onSuccess = { pantallaActual = "alumno_home" },
                         onBack = { pantallaActual = "alumno_home" }

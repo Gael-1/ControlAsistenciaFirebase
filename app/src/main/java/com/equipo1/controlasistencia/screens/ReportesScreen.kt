@@ -1,15 +1,21 @@
 package com.equipo1.controlasistencia.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,7 +27,9 @@ fun ReportesScreen(
     onBack: () -> Unit,
     onGuardarReporte: () -> Unit
 ) {
-    // estos son de ejemplo los vamos a cambiar cuando tengamos la base de datos
+    val appleGrayBackground = Color(0xFFF2F2F7)
+
+    // Datos de ejemplo (Luego los traeremos de Firestore)
     val reportes = remember {
         listOf(
             "Juan Pérez" to 90,
@@ -33,22 +41,24 @@ fun ReportesScreen(
     }
 
     Scaffold(
+        containerColor = appleGrayBackground,
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        text = "Reportes - $nombreGrupo",
-                        fontSize = 18.sp
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(nombreGrupo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("ESTADÍSTICAS", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Atrás"
-                        )
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.padding(8.dp).clip(CircleShape).background(Color.White)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás", tint = Color.Black)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = appleGrayBackground)
             )
         }
     ) { paddingValues ->
@@ -56,60 +66,78 @@ fun ReportesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 24.dp)
         ) {
+            Spacer(modifier = Modifier.height(20.dp))
+
             Text(
-                text = "Porcentaje de Asistencias",
+                text = "Rendimiento de Asistencia",
                 style = MaterialTheme.typography.headlineSmall,
-                fontSize = 22.sp
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.5).sp
+            )
+            Text(
+                text = "Resumen total por alumno",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 items(reportes) { (alumno, porcentaje) ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White,
+                        shadowElevation = 2.dp
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Avatar pequeño
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(appleGrayBackground),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.Gray)
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
 
                             Text(
                                 text = alumno,
-                                fontSize = 16.sp,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f)
                             )
 
+                            // Cápsula de Porcentaje
+                            val colorStatus = when {
+                                porcentaje >= 90 -> Color(0xFF34C759) // Verde Apple
+                                porcentaje >= 80 -> Color(0xFFFF9500) // Naranja Apple
+                                else -> Color(0xFFFF3B30) // Rojo Apple
+                            }
 
-                            Surface(      //esto modiifica el colo segun su asistencia
-                                color = when {
-                                    porcentaje >= 90 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                    porcentaje >= 80 -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
-                                    else -> MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
-                                },
-                                shape = MaterialTheme.shapes.medium
+                            Surface(
+                                color = colorStatus.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(
                                     text = "$porcentaje%",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = when {
-                                        porcentaje >= 90 -> MaterialTheme.colorScheme.primary
-                                        porcentaje >= 80 -> MaterialTheme.colorScheme.tertiary
-                                        else -> MaterialTheme.colorScheme.error
-                                    },
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    color = colorStatus,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.sp
                                 )
                             }
                         }
@@ -117,20 +145,19 @@ fun ReportesScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
+            // Botón de acción principal
             Button(
                 onClick = onGuardarReporte,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+                    .height(60.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                shape = RoundedCornerShape(18.dp)
             ) {
-                Text(
-                    text = "Guardar Reporte",
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
+                Icon(Icons.Default.Download, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Exportar Reporte", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
