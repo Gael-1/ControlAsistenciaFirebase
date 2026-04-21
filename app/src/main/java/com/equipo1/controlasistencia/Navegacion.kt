@@ -2,6 +2,7 @@ package com.equipo1.controlasistencia
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -13,17 +14,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.equipo1.controlasistencia.screens.*
-import com.google.accompanist.permissions.isGranted
-import com.google.firebase.auth.FirebaseAuth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.ExperimentalMaterial3Api
+import com.google.accompanist.permissions.*
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AppNavegacion() {
-    val auth = remember { FirebaseAuth.getInstance() }
     var nombreUsuarioGlobal by rememberSaveable { mutableStateOf("") }
-    var rolUsuarioGlobal by rememberSaveable { mutableStateOf("") } // Guardamos el rol para lógica interna
+    var rolUsuarioGlobal by rememberSaveable { mutableStateOf("") }
+    var uidUsuarioGlobal by rememberSaveable { mutableStateOf("") }
 
     var pantallaActual by rememberSaveable { mutableStateOf("login") }
     var grupoSeleccionadoId by rememberSaveable { mutableStateOf("") }
@@ -32,64 +30,57 @@ fun AppNavegacion() {
     when (pantallaActual) {
 
         "login" -> LoginScreen(
-            onLoginSuccess = { rol, nombre ->
+            onLoginSuccess = { rol, nombre, uid ->
                 nombreUsuarioGlobal = nombre
                 rolUsuarioGlobal = rol
-                // Redirección según rol
+                uidUsuarioGlobal = uid
                 pantallaActual = when (rol) {
                     "escolar" -> "home_escolar"
                     "profesor" -> "home"
                     else -> "alumno_home"
                 }
             },
-            onNavigateToRegister = {
-                pantallaActual = "register"
+            onNavigateToForgotPassword = {
+                pantallaActual = "forgot_password"
             }
         )
 
-        "register" -> RegisterScreen(
-            onRegisterSuccess = {
-                pantallaActual = "login"
-            }
-        )
+        "forgot_password" -> {
+            ForgotPasswordScreen(
+                onBack = { pantallaActual = "login" }
+            )
+        }
 
         // --- ROL ESCOLAR (Administrador) ---
         "home_escolar" -> {
             HomeEscolarScreen(
                 nombreAdmin = nombreUsuarioGlobal,
                 onLogout = {
-                    auth.signOut()
                     pantallaActual = "login"
                 },
                 onVerDetalleGrupo = { grupoId, nombreGrupo ->
                     grupoSeleccionadoId = grupoId
                     grupoSeleccionadoNombre = nombreGrupo
-                    pantallaActual = "lista_alumnos" // Reutilizamos pantalla
+                    pantallaActual = "lista_alumnos"
                 }
             )
         }
 
         // --- ROL PROFESOR ---
         "home" -> {
-            val user = auth.currentUser
-            if (user != null) {
-                HomeProfesorScreen(
-                    nombreProfesor = if (nombreUsuarioGlobal.isBlank()) "Profesor" else nombreUsuarioGlobal,
-                    onGrupoClick = { grupoId, nombreGrupo ->
-                        if (grupoId.isNotBlank()) {
-                            grupoSeleccionadoId = grupoId
-                            grupoSeleccionadoNombre = nombreGrupo
-                            pantallaActual = "lista_alumnos"
-                        }
-                    },
-                    onBack = {
-                        auth.signOut()
-                        pantallaActual = "login"
+            HomeProfesorScreen(
+                nombreProfesor = if (nombreUsuarioGlobal.isBlank()) "Profesor" else nombreUsuarioGlobal,
+                onGrupoClick = { grupoId, nombreGrupo ->
+                    if (grupoId.isNotBlank()) {
+                        grupoSeleccionadoId = grupoId
+                        grupoSeleccionadoNombre = nombreGrupo
+                        pantallaActual = "lista_alumnos"
                     }
-                )
-            } else {
-                pantallaActual = "login"
-            }
+                },
+                onBack = {
+                    pantallaActual = "login"
+                }
+            )
         }
 
         "lista_alumnos" -> {
@@ -99,7 +90,7 @@ fun AppNavegacion() {
                 ListaAlumnosScreen(
                     grupoId = grupoSeleccionadoId,
                     nombreGrupo = grupoSeleccionadoNombre,
-                    esAdmin = rolUsuarioGlobal == "escolar", // Para mostrar/ocultar botones
+                    esAdmin = rolUsuarioGlobal == "escolar",
                     onTomarAsistencia = { pantallaActual = "tomar_asistencia" },
                     onVerReportes = { pantallaActual = "reportes" },
                     onBack = {
@@ -131,7 +122,6 @@ fun AppNavegacion() {
                 nombreAlumno = nombreUsuarioGlobal,
                 onEscanearClick = { pantallaActual = "scanner_alumno" },
                 onLogout = {
-                    auth.signOut()
                     pantallaActual = "login"
                 }
             )
@@ -141,7 +131,7 @@ fun AppNavegacion() {
             CameraPermissionHandler(
                 onPermissionGranted = {
                     ScannerScreen(
-                        alumnoId = auth.currentUser?.uid ?: "",
+                        alumnoId = uidUsuarioGlobal,
                         onSuccess = { pantallaActual = "alumno_home" },
                         onBack = { pantallaActual = "alumno_home" }
                     )
@@ -152,25 +142,27 @@ fun AppNavegacion() {
     }
 }
 
-@OptIn(com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CameraPermissionHandler(
     onPermissionGranted: @Composable () -> Unit,
     onBack: () -> Unit
 ) {
-    val cameraPermissionState = com.google.accompanist.permissions.rememberPermissionState(
+    val cameraPermissionState = rememberPermissionState(
         android.Manifest.permission.CAMERA
     )
     if (cameraPermissionState.status.isGranted) {
         onPermissionGranted()
     } else {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Se necesita la cámara para el QR")
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(8.dp))
+            Spacer(modifier = Modifier.padding(8.dp))
             Button(onClick = { cameraPermissionState.launchPermissionRequest() }) {
                 Text("Dar permiso")
             }

@@ -26,16 +26,13 @@ class GrupoRepository {
             }
     }
 
-    // Cambia esto en GrupoRepository.kt
     fun escucharGrupos(onResult: (List<Pair<String, String>>) -> Unit) {
         val profesorId = auth.currentUser?.uid ?: return
 
-        // Usamos addSnapshotListener en lugar de .get()
         db.collection("grupos")
             .whereEqualTo("profesorId", profesorId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    // Aquí podrías loguear el error para saber si es por "Permissions"
                     return@addSnapshotListener
                 }
 
