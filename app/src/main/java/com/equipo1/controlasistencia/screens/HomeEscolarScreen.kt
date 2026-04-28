@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
@@ -35,22 +34,16 @@ fun HomeEscolarScreen(
     val db = FirebaseFirestore.getInstance()
     var grupos by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var showDialog by remember { mutableStateOf(false) }
-
-    // Estados para el formulario de nueva materia
     var nombreMateria by remember { mutableStateOf("") }
-    var numeroSocioProfesor by remember { mutableStateOf("") } // Cambio de UID a Número de Socio
+    var matriculaProfesor by remember { mutableStateOf("") }
+    var errorProfesor by remember { mutableStateOf<String?>(null) }
 
     val appleGrayBackground = Color(0xFFF2F2F7)
 
-    // Escuchar todos los grupos del sistema en tiempo real
     LaunchedEffect(Unit) {
-        db.collection("grupos")
-            .orderBy("nombre") // Para que siempre aparezcan ordenados alfabéticamente
-            .addSnapshotListener { snapshot, _ ->
-                if (snapshot != null) {
-                    grupos = snapshot.documents.map { it.id to (it.getString("nombre") ?: "Sin nombre") }
-                }
-            }
+        db.collection("grupos").orderBy("nombre").addSnapshotListener { snapshot, _ ->
+            grupos = snapshot?.documents?.mapNotNull { it.id to (it.getString("nombre") ?: "") } ?: emptyList()
+        }
     }
 
     Scaffold(
@@ -64,10 +57,7 @@ fun HomeEscolarScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = onLogout,
-                        modifier = Modifier.padding(8.dp).clip(CircleShape).background(Color.White)
-                    ) {
+                    IconButton(onClick = onLogout, modifier = Modifier.padding(8.dp).clip(CircleShape).background(Color.White)) {
                         Icon(Icons.Default.ExitToApp, contentDescription = "Salir", tint = Color.Red)
                     }
                 },
@@ -79,8 +69,7 @@ fun HomeEscolarScreen(
                 onClick = { showDialog = true },
                 containerColor = Color.Black,
                 contentColor = Color.White,
-                shape = RoundedCornerShape(20.dp),
-                elevation = FloatingActionButtonDefaults.elevation(4.dp)
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
@@ -102,13 +91,9 @@ fun HomeEscolarScreen(
                     letterSpacing = 1.sp
                 )
             }
-
             if (grupos.isEmpty()) {
                 item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
-                        color = Color.Transparent
-                    ) {
+                    Surface(modifier = Modifier.fillMaxWidth().padding(top = 20.dp), color = Color.Transparent) {
                         Text(
                             "No hay materias activas.\nPresiona + para organizar el ciclo.",
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -145,23 +130,57 @@ fun HomeEscolarScreen(
         }
     }
 
-    // Diálogo estilo iOS para crear materia
     if (showDialog) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
+            onDismissRequest = { showDialog = false; errorProfesor = null },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (nombreMateria.isNotBlank() && numeroSocioProfesor.isNotBlank()) {
-                            val nuevoGrupo = hashMapOf(
-                                "nombre" to nombreMateria,
-                                "profesorSocio" to numeroSocioProfesor, // Usamos el número de socio
-                                "codigoQr" to UUID.randomUUID().toString().take(6).uppercase()
-                            )
-                            db.collection("grupos").add(nuevoGrupo)
-                            showDialog = false
-                            nombreMateria = ""
-                            numeroSocioProfesor = ""
+                        if (nombreMateria.isNotBlank() && matriculaProfesor.isNotBlank()) {
+                            val profesorNum = matriculaProfesor.toLongOrNull()
+                            if (profesorNum != null) {
+                                val nuevoGrupo = hashMapOf(
+                                    "nombre" to nombreMateria,
+                                    "profesorSocio" to profesorNum,   // número
+                                    "codigoQr" to UUID.randomUUID().toString().take(6).uppercase()
+                                )
+                                db.collection("grupos").add(nuevoGrupo)
+                            }
+                            db.collection("usuarios")
+                                .whereEqualTo("matricula", profesorNum)
+                                .get()
+                                .addOnSuccessListener { snapshot ->
+                                    if (snapshot.isEmpty) {
+                                        errorProfesor = "Matrícula de profesor no registrada"
+                                        return@addOnSuccessListener
+                                    }
+                                    val rol = snapshot.documents[0].getString("rol")
+                                    if (rol != "profesor") {
+                                        errorProfesor = "El usuario no tiene rol de profesor"
+                                        return@addOnSuccessListener
+                                    }
+                                    // Crear grupo con profesorSocio como número
+                                    val nuevoGrupo = hashMapOf(
+                                        "nombre" to nombreMateria,
+                                        "profesorSocio" to profesorNum,
+                                        "codigoQr" to UUID.randomUUID().toString().take(6).uppercase()
+                                    )
+                                    db.collection("grupos").add(nuevoGrupo)
+                                        .addOnSuccessListener {
+                                            showDialog = false
+                                            nombreMateria = ""
+                                            matriculaProfesor = ""
+                                            errorProfesor = null
+                                        }
+                                        .addOnFailureListener { e ->
+                                            errorProfesor = "Error al crear: ${e.message}"
+                                        }
+                                }
+                                .addOnFailureListener { e ->
+                                    errorProfesor = "Error de conexión: ${e.message}"
+                                }
+                        } else {
+                            errorProfesor = "Completa todos los campos"
                         }
                     }
                 ) {
@@ -176,30 +195,29 @@ fun HomeEscolarScreen(
             title = { Text("Nueva Asignación", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Vincula una materia con un profesor mediante su número de socio.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("Vincula una materia con un profesor mediante su matrícula numérica.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     Spacer(Modifier.height(20.dp))
-
                     OutlinedTextField(
                         value = nombreMateria,
-                        onValueChange = { nombreMateria = it },
+                        onValueChange = { nombreMateria = it; errorProfesor = null },
                         label = { Text("Nombre de la Materia") },
                         placeholder = { Text("Ej. Cálculo Integral") },
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
-
                     Spacer(Modifier.height(12.dp))
-
                     OutlinedTextField(
-                        value = numeroSocioProfesor,
-                        onValueChange = { numeroSocioProfesor = it },
-                        label = { Text("Número de Socio") },
-                        placeholder = { Text("Ej. 12345") },
+                        value = matriculaProfesor,
+                        onValueChange = { matriculaProfesor = it; errorProfesor = null },
+                        label = { Text("Matrícula del Profesor") },
+                        placeholder = { Text("Ej. 2022466") },
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = errorProfesor != null,
+                        supportingText = { errorProfesor?.let { Text(it, color = Color.Red) } }
                     )
                 }
             },
