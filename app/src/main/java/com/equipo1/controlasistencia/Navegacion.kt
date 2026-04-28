@@ -21,7 +21,7 @@ import com.google.accompanist.permissions.*
 fun AppNavegacion() {
     var nombreUsuarioGlobal by rememberSaveable { mutableStateOf("") }
     var rolUsuarioGlobal by rememberSaveable { mutableStateOf("") }
-    var uidUsuarioGlobal by rememberSaveable { mutableStateOf("") }
+    var uidUsuarioGlobal by rememberSaveable { mutableStateOf("") }  // matrícula
 
     var pantallaActual by rememberSaveable { mutableStateOf("login") }
     var grupoSeleccionadoId by rememberSaveable { mutableStateOf("") }
@@ -35,9 +35,10 @@ fun AppNavegacion() {
                 rolUsuarioGlobal = rol
                 uidUsuarioGlobal = uid
                 pantallaActual = when (rol) {
-                    "escolar" -> "home_escolar"
-                    "profesor" -> "home"
-                    else -> "alumno_home"
+                    "admin" -> "home_escolar"
+                    "profesor" -> "home_profesor"
+                    "alumno" -> "alumno_home"
+                    else -> "login"
                 }
             },
             onNavigateToForgotPassword = {
@@ -51,79 +52,100 @@ fun AppNavegacion() {
             )
         }
 
-        // --- ROL ESCOLAR (Administrador) ---
+        // ========== ADMINISTRADOR (ESCOLAR) ==========
         "home_escolar" -> {
             HomeEscolarScreen(
                 nombreAdmin = nombreUsuarioGlobal,
-                onLogout = {
-                    pantallaActual = "login"
-                },
+                onLogout = { pantallaActual = "login" },
                 onVerDetalleGrupo = { grupoId, nombreGrupo ->
                     grupoSeleccionadoId = grupoId
                     grupoSeleccionadoNombre = nombreGrupo
-                    pantallaActual = "lista_alumnos"
+                    pantallaActual = "gestion_alumnos"   // Admin puede asignar alumnos
                 }
             )
         }
 
-        // --- ROL PROFESOR ---
-        "home" -> {
-            HomeProfesorScreen(
-                nombreProfesor = if (nombreUsuarioGlobal.isBlank()) "Profesor" else nombreUsuarioGlobal,
-                onGrupoClick = { grupoId, nombreGrupo ->
-                    if (grupoId.isNotBlank()) {
-                        grupoSeleccionadoId = grupoId
-                        grupoSeleccionadoNombre = nombreGrupo
-                        pantallaActual = "lista_alumnos"
-                    }
-                },
-                onBack = {
-                    pantallaActual = "login"
-                }
-            )
-        }
-
-        "lista_alumnos" -> {
+        "gestion_alumnos" -> {
             if (grupoSeleccionadoId.isBlank()) {
-                pantallaActual = if (rolUsuarioGlobal == "escolar") "home_escolar" else "home"
+                pantallaActual = "home_escolar"
             } else {
-                ListaAlumnosScreen(
+                GestionAlumnosGrupoScreen(
                     grupoId = grupoSeleccionadoId,
                     nombreGrupo = grupoSeleccionadoNombre,
-                    esAdmin = rolUsuarioGlobal == "escolar",
-                    onTomarAsistencia = { pantallaActual = "tomar_asistencia" },
-                    onVerReportes = { pantallaActual = "reportes" },
-                    onBack = {
-                        pantallaActual = if (rolUsuarioGlobal == "escolar") "home_escolar" else "home"
-                    }
+                    onBack = { pantallaActual = "home_escolar" }
                 )
             }
+        }
+
+        // ========== PROFESOR ==========
+        "home_profesor" -> {
+            HomeProfesorScreen(
+                profesorMatricula = uidUsuarioGlobal,
+                nombreProfesor = nombreUsuarioGlobal,
+                onGrupoClick = { grupoId, nombreGrupo ->
+                    grupoSeleccionadoId = grupoId
+                    grupoSeleccionadoNombre = nombreGrupo
+                    pantallaActual = "profesor_detalle"
+                },
+                onBack = { pantallaActual = "login" }
+            )
+        }
+
+        "profesor_detalle" -> {
+            if (grupoSeleccionadoId.isBlank()) {
+                pantallaActual = "home_profesor"
+            } else {
+                DetalleGrupoProfesorScreen(
+                    nombreGrupo = grupoSeleccionadoNombre,
+                    onVerAlumnos = { pantallaActual = "lista_alumnos_profesor" },
+                    onTomarAsistencia = { pantallaActual = "tomar_asistencia" },
+                    onBack = { pantallaActual = "home_profesor" }
+                )
+            }
+        }
+
+        "lista_alumnos_profesor" -> {
+            ListaAlumnosScreen(
+                grupoId = grupoSeleccionadoId,
+                nombreGrupo = grupoSeleccionadoNombre,
+                esAdmin = false,   // profesor solo ve la lista
+                onBack = { pantallaActual = "profesor_detalle" }
+            )
         }
 
         "tomar_asistencia" -> {
             TomarAsistenciaScreen(
                 grupoId = grupoSeleccionadoId,
                 nombreGrupo = grupoSeleccionadoNombre,
-                onBack = { pantallaActual = "lista_alumnos" }
+                onBack = { pantallaActual = "profesor_detalle" }
             )
         }
 
         "reportes" -> {
             ReportesScreen(
+                grupoId = grupoSeleccionadoId,
                 nombreGrupo = grupoSeleccionadoNombre,
-                onBack = { pantallaActual = "lista_alumnos" },
-                onGuardarReporte = { pantallaActual = "lista_alumnos" }
+                onBack = { pantallaActual = "lista_alumnos_profesor" },
+                onGuardarReporte = { /* exportar */ }
             )
         }
 
-        // --- ROL ALUMNO ---
+        // ========== ALUMNO ==========
         "alumno_home" -> {
             AlumnoHomeScreen(
+                matriculaAlumno = uidUsuarioGlobal,
                 nombreAlumno = nombreUsuarioGlobal,
-                onEscanearClick = { pantallaActual = "scanner_alumno" },
-                onLogout = {
-                    pantallaActual = "login"
-                }
+                onEscanearClick = { grupoId, nombreGrupo ->
+                    grupoSeleccionadoId = grupoId
+                    grupoSeleccionadoNombre = nombreGrupo
+                    pantallaActual = "scanner_alumno"
+                },
+                onHistorialClick = { grupoId, nombreGrupo ->
+                    grupoSeleccionadoId = grupoId
+                    grupoSeleccionadoNombre = nombreGrupo
+                    pantallaActual = "historial_asistencia"
+                },
+                onLogout = { pantallaActual = "login" }
             )
         }
 
@@ -131,11 +153,21 @@ fun AppNavegacion() {
             CameraPermissionHandler(
                 onPermissionGranted = {
                     ScannerScreen(
-                        alumnoId = uidUsuarioGlobal,
+                        matriculaAlumno = uidUsuarioGlobal,
+                        grupoIdEsperado = grupoSeleccionadoId,
                         onSuccess = { pantallaActual = "alumno_home" },
                         onBack = { pantallaActual = "alumno_home" }
                     )
                 },
+                onBack = { pantallaActual = "alumno_home" }
+            )
+        }
+
+        "historial_asistencia" -> {
+            HistorialAsistenciaScreen(
+                matriculaAlumno = uidUsuarioGlobal,
+                grupoId = grupoSeleccionadoId,
+                nombreGrupo = grupoSeleccionadoNombre,
                 onBack = { pantallaActual = "alumno_home" }
             )
         }

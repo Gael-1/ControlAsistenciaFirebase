@@ -24,7 +24,6 @@ fun ForgotPasswordScreen(
     onBack: () -> Unit
 ) {
     val authRepository = remember { AuthRepository() }
-
     var matriculaInput by remember { mutableStateOf("") }
     var cargando by remember { mutableStateOf(false) }
     var correoEnviado by remember { mutableStateOf(false) }
@@ -50,9 +49,7 @@ fun ForgotPasswordScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = appleGrayBackground
-                )
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = appleGrayBackground)
             )
         }
     ) { paddingValues ->
@@ -64,11 +61,8 @@ fun ForgotPasswordScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Icono
             Surface(
-                modifier = Modifier
-                    .size(100.dp)
-                    .padding(bottom = 32.dp),
+                modifier = Modifier.size(100.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = Color.Black.copy(alpha = 0.05f)
             ) {
@@ -83,29 +77,22 @@ fun ForgotPasswordScreen(
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
-
             Spacer(modifier = Modifier.height(8.dp))
-
             Text(
                 text = if (correoEnviado)
-                    "Revisa tu bandeja de entrada y sigue las instrucciones para restablecer tu contraseña."
+                    "Revisa tu bandeja de entrada y sigue las instrucciones."
                 else
                     "Ingresa tu matrícula y te enviaremos un enlace para restablecer tu contraseña.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Gray,
                 textAlign = TextAlign.Center
             )
-
             Spacer(modifier = Modifier.height(48.dp))
 
             if (!correoEnviado) {
-                // Campo de matrícula
                 OutlinedTextField(
                     value = matriculaInput,
-                    onValueChange = {
-                        matriculaInput = it
-                        mensaje = ""
-                    },
+                    onValueChange = { matriculaInput = it; mensaje = "" },
                     label = { Text("Tu matrícula") },
                     placeholder = { Text("Ej. 2022477") },
                     modifier = Modifier.fillMaxWidth(),
@@ -119,16 +106,12 @@ fun ForgotPasswordScreen(
                     ),
                     isError = mensajeEsError
                 )
-
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Botón enviar
                 Button(
                     onClick = {
                         if (matriculaInput.isNotBlank()) {
                             cargando = true
-                            mensaje = ""
-
                             authRepository.enviarCorreoRestablecimiento(matriculaInput) { success, msg ->
                                 cargando = false
                                 if (success) {
@@ -142,30 +125,22 @@ fun ForgotPasswordScreen(
                             }
                         }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
                     enabled = !cargando && matriculaInput.isNotBlank()
                 ) {
-                    if (cargando) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
-                    } else {
-                        Text("Enviar correo de recuperación", fontWeight = FontWeight.Bold)
-                    }
+                    if (cargando) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                    else Text("Enviar correo de recuperación", fontWeight = FontWeight.Bold)
                 }
             }
 
-            // Mensaje de estado
             if (mensaje.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = if (mensajeEsError)
-                        Color(0xFFFF3B30).copy(alpha = 0.1f)
-                    else
-                        Color(0xFF34C759).copy(alpha = 0.1f)
+                    color = if (mensajeEsError) Color(0xFFFF3B30).copy(alpha = 0.1f)
+                    else Color(0xFF34C759).copy(alpha = 0.1f)
                 ) {
                     Text(
                         text = mensaje,
@@ -177,14 +152,8 @@ fun ForgotPasswordScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-
-            // Botón volver
             TextButton(onClick = onBack) {
-                Text(
-                    "← Volver al inicio de sesión",
-                    color = Color(0xFF007AFF),
-                    fontWeight = FontWeight.Medium
-                )
+                Text("← Volver al inicio de sesión", color = Color(0xFF007AFF), fontWeight = FontWeight.Medium)
             }
         }
     }
