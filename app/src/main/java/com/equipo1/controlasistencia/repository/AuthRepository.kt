@@ -1,80 +1,95 @@
 package com.equipo1.controlasistencia.repository
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.equipo1.controlasistencia.model.Usuario
 
 class AuthRepository {
-
-    private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
+    private val TAG = "AuthRepo"
 
-    /**
-     * Registra un nuevo usuario en Firebase Auth y guarda su perfil en Firestore
-     */
-    fun registrar(
-        nombre: String,
-        correo: String,
+    fun login(
+        matricula: String,
         password: String,
-        rol: String,
-        onResult: (Boolean, String?) -> Unit
+        callback: (Boolean, String?, String?, String?, String?) -> Unit
     ) {
-        auth.createUserWithEmailAndPassword(correo, password)
-            .addOnSuccessListener { result ->
-                val uid = result.user?.uid ?: return@addOnSuccessListener
+        val matriculaNum = matricula.toLongOrNull()
+        if (matriculaNum == null) {
+            callback(false, "Matrícula inválida", null, null, null)
+            return
+        }
+        db.collection("usuarios")
+            .whereEqualTo("matricula", matriculaNum)  // ← campo sin acento
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.isEmpty) {
+                    callback(false, "Matrícula no encontrada", null, null, null)
+                    return@addOnSuccessListener
+                }
 
-                val usuario = Usuario(
-                    uid = uid,
-                    nombre = nombre,
-                    correo = correo,
-                    rol = rol
-                )
-
-                // Guardamos el objeto usuario usando su UID como nombre del documento
-                db.collection("usuarios")
-                    .document(uid)
-                    .set(usuario)
-                    .addOnSuccessListener {
-                        onResult(true, null)
-                    }
-                    .addOnFailureListener { e ->
-                        onResult(false, "Error al guardar perfil: ${e.message}")
-                    }
+                val doc = snapshot.documents[0]
+                val passBD = doc.getString("contraseña")
+                val nombre = doc.getString("nombre") ?: ""
+                val rol = doc.getString("rol") ?: "alumno"
+                // ⭐️ Devuelve la matrícula numérica como string (NO el ID del documento)
+                val matriculaReal = doc.getLong("matricula")?.toString() ?: matricula
+                if (passBD == password) {
+                    sincronizarConFirebaseAuth(matricula, password, nombre, doc.id)
+                    callback(true, null, rol, nombre, matriculaReal) // ← aquí el número
+                } else {
+                    callback(false, "Contraseña incorrecta", null, null, null)
+                }
             }
             .addOnFailureListener { e ->
-                onResult(false, "Error al crear cuenta: ${e.message}")
+                callback(false, "Error de conexión: ${e.message}", null, null, null)
             }
     }
 
-    /**
-     * Inicia sesión y recupera los datos (Rol y Nombre) desde Firestore
-     */
-    fun login(
-        correo: String,
-        password: String,
-        onResult: (Boolean, String?, String?, String?) -> Unit
-    ) {
-        auth.signInWithEmailAndPassword(correo, password)
-            .addOnSuccessListener { result ->
-                val uid = result.user?.uid ?: return@addOnSuccessListener
-
-                // Una vez logueado, vamos a Firestore por el nombre y rol
-                db.collection("usuarios").document(uid).get()
-                    .addOnSuccessListener { document ->
-                        if (document.exists()) {
-                            val rol = document.getString("rol")
-                            val nombre = document.getString("nombre")
-                            onResult(true, null, rol, nombre)
-                        } else {
-                            onResult(false, "El perfil del usuario no existe en la base de datos.", null, null)
-                        }
-                    }
-                    .addOnFailureListener { e ->
-                        onResult(false, "Error de red al obtener perfil: ${e.message}", null, null)
-                    }
+    private fun sincronizarConFirebaseAuth(matricula: String, password: String, nombre: String, documentoId: String) {
+        val email = "$matricula@controlasistencia.local"
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnSuccessListener { authResult ->
+                authResult.user?.updateProfile(com.google.firebase.auth.UserProfileChangeRequest.Builder().setDisplayName(nombre).build())
+                db.collection("usuarios").document(documentoId).update("firebaseUid", authResult.user?.uid)
             }
             .addOnFailureListener { e ->
-                onResult(false, "Correo o contraseña incorrectos", null, null)
+                if (e.message?.contains("already in use") != true) Log.w(TAG, "Error en sincronización: ${e.message}")
             }
+    }
+
+    fun enviarCorreoRestablecimiento(matricula: String, onResult: (Boolean, String?) -> Unit) {
+        val matriculaNum = matricula.toLongOrNull()
+        if (matriculaNum == null) {
+            onResult(false, "Matrícula inválida")
+            return
+        }
+        db.collection("usuarios")
+            .whereEqualTo("matricula", matriculaNum)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.isEmpty) {
+                    onResult(false, "Matrícula no registrada")
+                    return@addOnSuccessListener
+                }
+                val correo = snapshot.documents[0].getString("correo")
+                if (correo.isNullOrEmpty() || !correo.contains("@")) {
+                    onResult(false, "No hay correo electrónico registrado")
+                } else {
+                    auth.sendPasswordResetEmail(correo)
+                        .addOnSuccessListener { onResult(true, "Correo enviado a ${enmascararCorreo(correo)}") }
+                        .addOnFailureListener { e -> onResult(false, "Error al enviar: ${e.message}") }
+                }
+            }
+            .addOnFailureListener { e -> onResult(false, "Error de conexión: ${e.message}") }
+    }
+
+    private fun enmascararCorreo(correo: String): String {
+        val partes = correo.split("@")
+        if (partes.size != 2) return correo
+        val nombre = partes[0]
+        val dominio = partes[1]
+        return if (nombre.length > 3) "${nombre.take(2)}***${nombre.takeLast(1)}@$dominio"
+        else "${nombre.first()}***@$dominio"
     }
 }

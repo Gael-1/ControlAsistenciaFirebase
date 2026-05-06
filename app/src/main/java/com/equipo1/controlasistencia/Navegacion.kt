@@ -2,6 +2,7 @@ package com.equipo1.controlasistencia
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -13,17 +14,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.equipo1.controlasistencia.screens.*
-import com.google.accompanist.permissions.isGranted
-import com.google.firebase.auth.FirebaseAuth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.ExperimentalMaterial3Api
+import com.google.accompanist.permissions.*
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AppNavegacion() {
-    val auth = remember { FirebaseAuth.getInstance() }
     var nombreUsuarioGlobal by rememberSaveable { mutableStateOf("") }
-    var rolUsuarioGlobal by rememberSaveable { mutableStateOf("") } // Guardamos el rol para lógica interna
+    var rolUsuarioGlobal by rememberSaveable { mutableStateOf("") }
+    var uidUsuarioGlobal by rememberSaveable { mutableStateOf("") }  // matrícula
 
     var pantallaActual by rememberSaveable { mutableStateOf("login") }
     var grupoSeleccionadoId by rememberSaveable { mutableStateOf("") }
@@ -32,108 +30,122 @@ fun AppNavegacion() {
     when (pantallaActual) {
 
         "login" -> LoginScreen(
-            onLoginSuccess = { rol, nombre ->
+            onLoginSuccess = { rol, nombre, uid ->
                 nombreUsuarioGlobal = nombre
                 rolUsuarioGlobal = rol
-                // Redirección según rol
+                uidUsuarioGlobal = uid
                 pantallaActual = when (rol) {
-                    "escolar" -> "home_escolar"
-                    "profesor" -> "home"
-                    else -> "alumno_home"
+                    "admin" -> "home_escolar"
+                    "profesor" -> "home_profesor"
+                    "alumno" -> "alumno_home"
+                    else -> "login"
                 }
             },
-            onNavigateToRegister = {
-                pantallaActual = "register"
+            onNavigateToForgotPassword = {
+                pantallaActual = "forgot_password"
             }
         )
 
-        "register" -> RegisterScreen(
-            onRegisterSuccess = {
-                pantallaActual = "login"
-            }
-        )
+        "forgot_password" -> {
+            ForgotPasswordScreen(
+                onBack = { pantallaActual = "login" }
+            )
+        }
 
-        // --- ROL ESCOLAR (Administrador) ---
+        // ========== ADMINISTRADOR (ESCOLAR) ==========
         "home_escolar" -> {
             HomeEscolarScreen(
                 nombreAdmin = nombreUsuarioGlobal,
-                onLogout = {
-                    auth.signOut()
-                    pantallaActual = "login"
-                },
+                onLogout = { pantallaActual = "login" },
                 onVerDetalleGrupo = { grupoId, nombreGrupo ->
                     grupoSeleccionadoId = grupoId
                     grupoSeleccionadoNombre = nombreGrupo
-                    pantallaActual = "lista_alumnos" // Reutilizamos pantalla
+                    pantallaActual = "gestion_alumnos"   // Admin puede asignar alumnos
                 }
             )
         }
 
-        // --- ROL PROFESOR ---
-        "home" -> {
-            val user = auth.currentUser
-            if (user != null) {
-                HomeProfesorScreen(
-                    nombreProfesor = if (nombreUsuarioGlobal.isBlank()) "Profesor" else nombreUsuarioGlobal,
-                    onGrupoClick = { grupoId, nombreGrupo ->
-                        if (grupoId.isNotBlank()) {
-                            grupoSeleccionadoId = grupoId
-                            grupoSeleccionadoNombre = nombreGrupo
-                            pantallaActual = "lista_alumnos"
-                        }
-                    },
-                    onBack = {
-                        auth.signOut()
-                        pantallaActual = "login"
-                    }
-                )
+        "gestion_alumnos" -> {
+            if (grupoSeleccionadoId.isBlank()) {
+                pantallaActual = "home_escolar"
             } else {
-                pantallaActual = "login"
+                GestionAlumnosGrupoScreen(
+                    grupoId = grupoSeleccionadoId,
+                    nombreGrupo = grupoSeleccionadoNombre,
+                    onBack = { pantallaActual = "home_escolar" }
+                )
             }
         }
 
-        "lista_alumnos" -> {
+        // ========== PROFESOR ==========
+        "home_profesor" -> {
+            HomeProfesorScreen(
+                profesorMatricula = uidUsuarioGlobal,
+                nombreProfesor = nombreUsuarioGlobal,
+                onGrupoClick = { grupoId, nombreGrupo ->
+                    grupoSeleccionadoId = grupoId
+                    grupoSeleccionadoNombre = nombreGrupo
+                    pantallaActual = "profesor_detalle"
+                },
+                onBack = { pantallaActual = "login" }
+            )
+        }
+
+        "profesor_detalle" -> {
             if (grupoSeleccionadoId.isBlank()) {
-                pantallaActual = if (rolUsuarioGlobal == "escolar") "home_escolar" else "home"
+                pantallaActual = "home_profesor"
             } else {
-                ListaAlumnosScreen(
-                    grupoId = grupoSeleccionadoId,
+                DetalleGrupoProfesorScreen(
                     nombreGrupo = grupoSeleccionadoNombre,
-                    esAdmin = rolUsuarioGlobal == "escolar", // Para mostrar/ocultar botones
+                    onVerAlumnos = { pantallaActual = "lista_alumnos_profesor" },
                     onTomarAsistencia = { pantallaActual = "tomar_asistencia" },
-                    onVerReportes = { pantallaActual = "reportes" },
-                    onBack = {
-                        pantallaActual = if (rolUsuarioGlobal == "escolar") "home_escolar" else "home"
-                    }
+                    onBack = { pantallaActual = "home_profesor" }
                 )
             }
+        }
+
+        "lista_alumnos_profesor" -> {
+            ListaAlumnosScreen(
+                grupoId = grupoSeleccionadoId,
+                nombreGrupo = grupoSeleccionadoNombre,
+                esAdmin = false,   // profesor solo ve la lista
+                onBack = { pantallaActual = "profesor_detalle" }
+            )
         }
 
         "tomar_asistencia" -> {
             TomarAsistenciaScreen(
                 grupoId = grupoSeleccionadoId,
                 nombreGrupo = grupoSeleccionadoNombre,
-                onBack = { pantallaActual = "lista_alumnos" }
+                onBack = { pantallaActual = "profesor_detalle" }
             )
         }
 
         "reportes" -> {
             ReportesScreen(
+                grupoId = grupoSeleccionadoId,
                 nombreGrupo = grupoSeleccionadoNombre,
-                onBack = { pantallaActual = "lista_alumnos" },
-                onGuardarReporte = { pantallaActual = "lista_alumnos" }
+                onBack = { pantallaActual = "lista_alumnos_profesor" },
+                onGuardarReporte = { /* exportar */ }
             )
         }
 
-        // --- ROL ALUMNO ---
+        // ========== ALUMNO ==========
         "alumno_home" -> {
             AlumnoHomeScreen(
+                matriculaAlumno = uidUsuarioGlobal,
                 nombreAlumno = nombreUsuarioGlobal,
-                onEscanearClick = { pantallaActual = "scanner_alumno" },
-                onLogout = {
-                    auth.signOut()
-                    pantallaActual = "login"
-                }
+                onEscanearClick = { grupoId, nombreGrupo ->
+                    grupoSeleccionadoId = grupoId
+                    grupoSeleccionadoNombre = nombreGrupo
+                    pantallaActual = "scanner_alumno"
+                },
+                onHistorialClick = { grupoId, nombreGrupo ->
+                    grupoSeleccionadoId = grupoId
+                    grupoSeleccionadoNombre = nombreGrupo
+                    pantallaActual = "historial_asistencia"
+                },
+                onLogout = { pantallaActual = "login" }
             )
         }
 
@@ -141,7 +153,8 @@ fun AppNavegacion() {
             CameraPermissionHandler(
                 onPermissionGranted = {
                     ScannerScreen(
-                        alumnoId = auth.currentUser?.uid ?: "",
+                        matriculaAlumno = uidUsuarioGlobal,
+                        grupoIdEsperado = grupoSeleccionadoId,
                         onSuccess = { pantallaActual = "alumno_home" },
                         onBack = { pantallaActual = "alumno_home" }
                     )
@@ -149,28 +162,39 @@ fun AppNavegacion() {
                 onBack = { pantallaActual = "alumno_home" }
             )
         }
+
+        "historial_asistencia" -> {
+            HistorialAsistenciaScreen(
+                matriculaAlumno = uidUsuarioGlobal,
+                grupoId = grupoSeleccionadoId,
+                nombreGrupo = grupoSeleccionadoNombre,
+                onBack = { pantallaActual = "alumno_home" }
+            )
+        }
     }
 }
 
-@OptIn(com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CameraPermissionHandler(
     onPermissionGranted: @Composable () -> Unit,
     onBack: () -> Unit
 ) {
-    val cameraPermissionState = com.google.accompanist.permissions.rememberPermissionState(
+    val cameraPermissionState = rememberPermissionState(
         android.Manifest.permission.CAMERA
     )
     if (cameraPermissionState.status.isGranted) {
         onPermissionGranted()
     } else {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Se necesita la cámara para el QR")
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(8.dp))
+            Spacer(modifier = Modifier.padding(8.dp))
             Button(onClick = { cameraPermissionState.launchPermissionRequest() }) {
                 Text("Dar permiso")
             }

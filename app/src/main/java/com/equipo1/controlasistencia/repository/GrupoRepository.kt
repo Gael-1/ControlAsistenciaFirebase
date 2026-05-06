@@ -1,49 +1,58 @@
 package com.equipo1.controlasistencia.repository
 
-import com.google.firebase.auth.FirebaseAuth
+import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 
 class GrupoRepository {
-
     private val db = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+    private val TAG = "GrupoRepo"
 
-    fun crearGrupo(nombre: String, onResult: (Boolean, String?) -> Unit) {
-        val profesorId = auth.currentUser?.uid ?: return
-
-        val grupo = hashMapOf(
-            "nombre" to nombre,
-            "profesorId" to profesorId
-        )
-
+    // Obtener grupos de un profesor (conversión a número)
+    fun obtenerGruposPorProfesor(matriculaProfesor: String, callback: (List<Pair<String, String>>) -> Unit) {
+        val matriculaNum = matriculaProfesor.toLongOrNull()
+        if (matriculaNum == null) {
+            Log.e(TAG, "Matrícula inválida: $matriculaProfesor")
+            callback(emptyList())
+            return
+        }
+        Log.d(TAG, "Buscando grupos para profesor con matrícula numérica: $matriculaNum")
         db.collection("grupos")
-            .add(grupo)
-            .addOnSuccessListener {
-                onResult(true, null)
+            .whereEqualTo("profesorSocio", matriculaNum)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val grupos = snapshot.documents.mapNotNull { doc ->
+                    val id = doc.id
+                    val nombre = doc.getString("nombre") ?: ""
+                    Log.d(TAG, "Grupo encontrado: $id - $nombre")
+                    id to nombre
+                }
+                callback(grupos)
             }
-            .addOnFailureListener {
-                onResult(false, it.message)
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error al obtener grupos: ${e.message}")
+                callback(emptyList())
             }
     }
 
-    // Cambia esto en GrupoRepository.kt
-    fun escucharGrupos(onResult: (List<Pair<String, String>>) -> Unit) {
-        val profesorId = auth.currentUser?.uid ?: return
-
-        // Usamos addSnapshotListener en lugar de .get()
+    // Escucha en tiempo real para profesores (opcional, si prefieres actualización automática)
+    fun escucharGrupos(profesorMatricula: String, callback: (List<Pair<String, String>>) -> Unit) {
+        val matriculaNum = profesorMatricula.toLongOrNull()
+        if (matriculaNum == null) {
+            callback(emptyList())
+            return
+        }
         db.collection("grupos")
-            .whereEqualTo("profesorId", profesorId)
+            .whereEqualTo("profesorSocio", matriculaNum)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    // Aquí podrías loguear el error para saber si es por "Permissions"
+                    Log.e(TAG, "Error en listener: ${error.message}")
+                    callback(emptyList())
                     return@addSnapshotListener
                 }
-
-                val lista = snapshot?.documents?.map {
-                    Pair(it.id, it.getString("nombre") ?: "")
+                val grupos = snapshot?.documents?.mapNotNull { doc ->
+                    doc.id to (doc.getString("nombre") ?: "")
                 } ?: emptyList()
-
-                onResult(lista)
+                callback(grupos)
             }
     }
 }

@@ -22,14 +22,14 @@ import com.equipo1.controlasistencia.repository.AuthRepository
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String, String) -> Unit,
-    onNavigateToRegister: () -> Unit
+    onLoginSuccess: (String, String, String) -> Unit, // (rol, nombre, uid)
+    onNavigateToForgotPassword: () -> Unit
 ) {
     val authRepository = remember { AuthRepository() }
 
-    var userInput by remember { mutableStateOf("") }
+    var matriculaInput by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) } // Estado para el ojito
+    var passwordVisible by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
 
@@ -61,32 +61,40 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(64.dp))
 
-            // Campo de entrada (Correo o Número de Socio)
+            // Campo de matrícula
             OutlinedTextField(
-                value = userInput,
-                onValueChange = { userInput = it },
-                label = { Text("Correo o Número de Socio") },
+                value = matriculaInput,
+                onValueChange = {
+                    matriculaInput = it
+                    errorMsg = ""
+                },
+                label = { Text("Matrícula") },
+                placeholder = { Text("Ej. 2022477") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Black,
                     unfocusedContainerColor = Color.White,
                     focusedContainerColor = Color.White
-                )
+                ),
+                isError = errorMsg.isNotEmpty()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo de Contraseña con "Ojito"
+            // Campo de contraseña
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = {
+                    password = it
+                    errorMsg = ""
+                },
                 label = { Text("Contraseña") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
-                // Lógica de visibilidad
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
@@ -101,13 +109,14 @@ fun LoginScreen(
                     focusedBorderColor = Color.Black,
                     unfocusedContainerColor = Color.White,
                     focusedContainerColor = Color.White
-                )
+                ),
+                isError = errorMsg.isNotEmpty()
             )
 
             if (errorMsg.isNotEmpty()) {
                 Text(
                     text = errorMsg,
-                    color = Color.Red,
+                    color = Color(0xFFFF3B30),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 16.dp)
                 )
@@ -117,26 +126,20 @@ fun LoginScreen(
 
             Button(
                 onClick = {
-                    if (userInput.isNotBlank() && password.isNotBlank()) {
+                    if (matriculaInput.isNotBlank() && password.isNotBlank()) {
                         cargando = true
                         errorMsg = ""
 
-                        val loginCredential = if (!userInput.contains("@")) {
-                            "$userInput@control.com"
-                        } else {
-                            userInput
-                        }
-
-                        authRepository.login(loginCredential, password) { success, mensaje, rol, nombre ->
+                        authRepository.login(matriculaInput, password) { success, mensaje, rol, nombre, uid ->
                             cargando = false
                             if (success) {
-                                onLoginSuccess(rol ?: "profesor", nombre ?: "Usuario")
+                                onLoginSuccess(rol ?: "alumno", nombre ?: "Usuario", uid ?: "")
                             } else {
                                 errorMsg = mensaje ?: "Credenciales incorrectas"
                             }
                         }
                     } else {
-                        errorMsg = "Por favor completa los campos"
+                        errorMsg = "Por favor completa todos los campos"
                     }
                 },
                 modifier = Modifier
@@ -155,9 +158,9 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            TextButton(onClick = onNavigateToRegister) {
+            TextButton(onClick = onNavigateToForgotPassword) {
                 Text(
-                    "¿Nuevo aquí? Crea una cuenta",
+                    "¿Olvidaste tu contraseña?",
                     color = Color(0xFF007AFF),
                     fontWeight = FontWeight.Medium
                 )
