@@ -8,13 +8,29 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.equipo1.controlasistencia.screens.*
-import com.google.accompanist.permissions.*
+import com.equipo1.controlasistencia.screens.AlumnoHomeScreen
+import com.equipo1.controlasistencia.screens.DetalleGrupoProfesorScreen
+import com.equipo1.controlasistencia.screens.ForgotPasswordScreen
+import com.equipo1.controlasistencia.screens.GestionAlumnosGrupoScreen
+import com.equipo1.controlasistencia.screens.HistorialAsistenciaScreen
+import com.equipo1.controlasistencia.screens.HomeEscolarScreen
+import com.equipo1.controlasistencia.screens.HomeProfesorScreen
+import com.equipo1.controlasistencia.screens.ListaAlumnosScreen
+import com.equipo1.controlasistencia.screens.LoginScreen
+import com.equipo1.controlasistencia.screens.ReportesScreen
+import com.equipo1.controlasistencia.screens.ScannerScreen
+import com.equipo1.controlasistencia.screens.TomarAsistenciaScreen
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -125,8 +141,7 @@ fun AppNavegacion() {
             ReportesScreen(
                 grupoId = grupoSeleccionadoId,
                 nombreGrupo = grupoSeleccionadoNombre,
-                onBack = { pantallaActual = "lista_alumnos_profesor" },
-                onGuardarReporte = { /* exportar */ }
+                onBack = { pantallaActual = "lista_alumnos_profesor" }
             )
         }
 
@@ -183,6 +198,7 @@ fun CameraPermissionHandler(
     val cameraPermissionState = rememberPermissionState(
         android.Manifest.permission.CAMERA
     )
+
     if (cameraPermissionState.status.isGranted) {
         onPermissionGranted()
     } else {
@@ -194,11 +210,16 @@ fun CameraPermissionHandler(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Se necesita la cámara para el QR")
+
             Spacer(modifier = Modifier.padding(8.dp))
+
             Button(onClick = { cameraPermissionState.launchPermissionRequest() }) {
                 Text("Dar permiso")
             }
-            TextButton(onClick = onBack) { Text("Regresar") }
+
+            TextButton(onClick = onBack) {
+                Text("Regresar")
+            }
         }
     }
 }
