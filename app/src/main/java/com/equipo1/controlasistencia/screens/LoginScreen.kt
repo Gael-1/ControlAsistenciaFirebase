@@ -133,7 +133,13 @@ fun LoginScreen(
                         authRepository.login(matriculaInput, password) { success, mensaje, rol, nombre, uid ->
                             cargando = false
                             if (success) {
-                                onLoginSuccess(rol ?: "alumno", nombre ?: "Usuario", uid ?: "")
+                                // --- CORRECCIÓN: Validar nombre para admin ---
+                                val rolFinal = rol ?: "alumno"
+                                var nombreFinal = nombre ?: "Usuario"
+                                if (rolFinal == "admin" && nombreFinal.isBlank()) {
+                                    nombreFinal = "Admin"
+                                }
+                                onLoginSuccess(rolFinal, nombreFinal, uid ?: "")
                             } else {
                                 errorMsg = mensaje ?: "Credenciales incorrectas"
                             }

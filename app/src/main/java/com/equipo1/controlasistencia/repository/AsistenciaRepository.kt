@@ -64,7 +64,7 @@ class AsistenciaRepository {
             }
     }
 
-    // Actualizar token dinámico para un grupo en una fecha
+    // Actualizar token dinámico para un grupo en una fecha (y guardar en el documento del grupo)
     fun actualizarTokenAsistencia(
         grupoId: String,
         nuevoToken: String,
@@ -79,7 +79,6 @@ class AsistenciaRepository {
             "updatedAt" to Date()
         )
 
-        // Sobrescribir si ya existe: borra tokens previos del grupo/fecha y guarda el nuevo.
         db.collection("asistencia_tokens")
             .whereEqualTo("grupoId", grupoId)
             .whereEqualTo("fecha", fecha)
@@ -92,6 +91,14 @@ class AsistenciaRepository {
                 }
 
                 batch.set(tokenDoc, data)
+
+                // También guardar el token y fecha actual en el documento del grupo
+                val grupoRef = db.collection("grupos").document(grupoId)
+                batch.update(grupoRef, mapOf(
+                    "tokenAsistenciaActual" to nuevoToken,
+                    "fechaAsistenciaActual" to fecha
+                ))
+
                 batch.commit()
                     .addOnSuccessListener {
                         callback(true)
@@ -102,6 +109,66 @@ class AsistenciaRepository {
             }
             .addOnFailureListener {
                 callback(false)
+            }
+    }
+
+    // Obtener asistencias de una sesión específica (grupo + fecha + token)
+    fun obtenerAsistenciasPorSesion(
+        grupoId: String,
+        fecha: String,
+        token: String,
+        callback: (List<String>) -> Unit
+    ) {
+        db.collection("asistencias")
+            .whereEqualTo("grupoId", grupoId)
+            .whereEqualTo("fecha", fecha)
+            .whereEqualTo("token", token)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val matriculas = snapshot.documents.mapNotNull { it.getString("matriculaAlumno") }
+                callback(matriculas)
+            }
+            .addOnFailureListener {
+                callback(emptyList())
+            }
+    }
+
+    // Obtener token asociado a una fecha específica (útil para fechas anteriores)
+    fun obtenerTokenPorFecha(
+        grupoId: String,
+        fecha: String,
+        callback: (String) -> Unit
+    ) {
+        db.collection("asistencia_tokens")
+            .whereEqualTo("grupoId", grupoId)
+            .whereEqualTo("fecha", fecha)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val token = snapshot.documents.firstOrNull()?.getString("token") ?: ""
+                callback(token)
+            }
+            .addOnFailureListener {
+                callback("")
+            }
+    }
+
+    // Obtener todas las fechas únicas de asistencia registradas para un grupo
+    fun obtenerFechasAsistenciaGrupo(
+        grupoId: String,
+        callback: (List<String>) -> Unit
+    ) {
+        db.collection("asistencias")
+            .whereEqualTo("grupoId", grupoId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val fechas = snapshot.documents
+                    .mapNotNull { it.getString("fecha") }
+                    .distinct()
+                    .sortedDescending() // más reciente primero
+                callback(fechas)
+            }
+            .addOnFailureListener {
+                callback(emptyList())
             }
     }
 

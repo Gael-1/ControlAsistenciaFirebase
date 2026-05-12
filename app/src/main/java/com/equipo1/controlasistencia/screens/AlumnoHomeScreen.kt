@@ -19,6 +19,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.equipo1.controlasistencia.repository.AlumnoRepository
+import com.google.firebase.firestore.ListenerRegistration
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,11 +37,30 @@ fun AlumnoHomeScreen(
     var cargando by remember { mutableStateOf(true) }
     val appleGrayBackground = Color(0xFFF2F2F7)
 
-    LaunchedEffect(Unit) {
+    // Estado de asistencia del día para cada grupo
+    var attendanceStatus by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
 
+    // Cargar grupos
+    LaunchedEffect(Unit) {
         alumnoRepo.obtenerGruposDelAlumno(matriculaAlumno) { lista ->
             grupos = lista
             cargando = false
+        }
+    }
+
+    // Escuchar en tiempo real la asistencia de hoy para cada grupo
+    DisposableEffect(grupos, matriculaAlumno) {
+        val listeners = mutableListOf<ListenerRegistration>()
+        grupos.forEach { (grupoId, _) ->
+            val listener = alumnoRepo.escucharAsistenciaHoy(matriculaAlumno, grupoId) { presente ->
+                attendanceStatus = attendanceStatus.toMutableMap().apply {
+                    put(grupoId, presente)
+                }
+            }
+            listeners.add(listener)
+        }
+        onDispose {
+            listeners.forEach { it.remove() }
         }
     }
 
@@ -82,7 +104,27 @@ fun AlumnoHomeScreen(
                     items(grupos) { (grupoId, nombreGrupo) ->
                         Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color.White, shadowElevation = 2.dp) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(nombreGrupo, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(nombreGrupo, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                    val presente = attendanceStatus[grupoId] ?: false
+                                    if (presente) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = "Asistencia tomada", tint = Color(0xFF34C759), modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Tomada", color = Color(0xFF34C759), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                        }
+                                    } else {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Cancel, contentDescription = "Pendiente", tint = Color(0xFFFF3B30), modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Pendiente", color = Color(0xFFFF3B30), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                        }
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Button(onClick = { onEscanearClick(grupoId, nombreGrupo) }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black), shape = RoundedCornerShape(16.dp), modifier = Modifier.weight(1f)) {

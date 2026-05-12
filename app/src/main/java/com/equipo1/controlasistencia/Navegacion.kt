@@ -1,225 +1,329 @@
 package com.equipo1.controlasistencia
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import android.util.Log
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.equipo1.controlasistencia.screens.AlumnoHomeScreen
-import com.equipo1.controlasistencia.screens.DetalleGrupoProfesorScreen
-import com.equipo1.controlasistencia.screens.ForgotPasswordScreen
-import com.equipo1.controlasistencia.screens.GestionAlumnosGrupoScreen
-import com.equipo1.controlasistencia.screens.HistorialAsistenciaScreen
-import com.equipo1.controlasistencia.screens.HomeEscolarScreen
-import com.equipo1.controlasistencia.screens.HomeProfesorScreen
-import com.equipo1.controlasistencia.screens.ListaAlumnosScreen
-import com.equipo1.controlasistencia.screens.LoginScreen
-import com.equipo1.controlasistencia.screens.ReportesScreen
-import com.equipo1.controlasistencia.screens.ScannerScreen
-import com.equipo1.controlasistencia.screens.TomarAsistenciaScreen
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.equipo1.controlasistencia.screens.*
+import com.google.firebase.firestore.FirebaseFirestore
 
-@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AppNavegacion() {
-    var nombreUsuarioGlobal by rememberSaveable { mutableStateOf("") }
-    var rolUsuarioGlobal by rememberSaveable { mutableStateOf("") }
-    var uidUsuarioGlobal by rememberSaveable { mutableStateOf("") }  // matrícula
 
-    var pantallaActual by rememberSaveable { mutableStateOf("login") }
-    var grupoSeleccionadoId by rememberSaveable { mutableStateOf("") }
-    var grupoSeleccionadoNombre by rememberSaveable { mutableStateOf("") }
+    val navController = rememberNavController()
 
-    when (pantallaActual) {
+    NavHost(
+        navController = navController,
+        startDestination = "login"
+    ) {
 
-        "login" -> LoginScreen(
-            onLoginSuccess = { rol, nombre, uid ->
-                nombreUsuarioGlobal = nombre
-                rolUsuarioGlobal = rol
-                uidUsuarioGlobal = uid
-                pantallaActual = when (rol) {
-                    "admin" -> "home_escolar"
-                    "profesor" -> "home_profesor"
-                    "alumno" -> "alumno_home"
-                    else -> "login"
-                }
-            },
-            onNavigateToForgotPassword = {
-                pantallaActual = "forgot_password"
-            }
-        )
+        // =========================
+        // LOGIN
+        // =========================
 
-        "forgot_password" -> {
-            ForgotPasswordScreen(
-                onBack = { pantallaActual = "login" }
-            )
-        }
+        composable("login") {
 
-        // ========== ADMINISTRADOR (ESCOLAR) ==========
-        "home_escolar" -> {
-            HomeEscolarScreen(
-                nombreAdmin = nombreUsuarioGlobal,
-                onLogout = { pantallaActual = "login" },
-                onVerDetalleGrupo = { grupoId, nombreGrupo ->
-                    grupoSeleccionadoId = grupoId
-                    grupoSeleccionadoNombre = nombreGrupo
-                    pantallaActual = "gestion_alumnos"   // Admin puede asignar alumnos
-                }
-            )
-        }
+            LoginScreen(
 
-        "gestion_alumnos" -> {
-            if (grupoSeleccionadoId.isBlank()) {
-                pantallaActual = "home_escolar"
-            } else {
-                GestionAlumnosGrupoScreen(
-                    grupoId = grupoSeleccionadoId,
-                    nombreGrupo = grupoSeleccionadoNombre,
-                    onBack = { pantallaActual = "home_escolar" }
-                )
-            }
-        }
+                onLoginSuccess = { rol, nombre, uid ->
 
-        // ========== PROFESOR ==========
-        "home_profesor" -> {
-            HomeProfesorScreen(
-                profesorMatricula = uidUsuarioGlobal,
-                nombreProfesor = nombreUsuarioGlobal,
-                onGrupoClick = { grupoId, nombreGrupo ->
-                    grupoSeleccionadoId = grupoId
-                    grupoSeleccionadoNombre = nombreGrupo
-                    pantallaActual = "profesor_detalle"
+                    when (rol) {
+
+                        "admin" -> {
+                            val nombreAdmin = if (nombre.isBlank()) "Admin" else nombre
+                            navController.navigate("home_escolar/$nombreAdmin")
+                        }
+
+                        "profesor" -> {
+                            navController.navigate("home_profesor/$uid/$nombre")
+                        }
+
+                        else -> {
+                            navController.navigate("alumno_home/$uid/$nombre")
+                        }
+                    }
                 },
-                onBack = { pantallaActual = "login" }
+
+                onNavigateToForgotPassword = {
+                    navController.navigate("forgot_password")
+                }
             )
         }
 
-        "profesor_detalle" -> {
-            if (grupoSeleccionadoId.isBlank()) {
-                pantallaActual = "home_profesor"
-            } else {
-                DetalleGrupoProfesorScreen(
-                    nombreGrupo = grupoSeleccionadoNombre,
-                    onVerAlumnos = { pantallaActual = "lista_alumnos_profesor" },
-                    onTomarAsistencia = { pantallaActual = "tomar_asistencia" },
-                    onBack = { pantallaActual = "home_profesor" }
-                )
-            }
-        }
+        // =========================
+        // FORGOT PASSWORD
+        // =========================
 
-        "lista_alumnos_profesor" -> {
-            ListaAlumnosScreen(
-                grupoId = grupoSeleccionadoId,
-                nombreGrupo = grupoSeleccionadoNombre,
-                esAdmin = false,   // profesor solo ve la lista
-                onBack = { pantallaActual = "profesor_detalle" }
+        composable("forgot_password") {
+
+            ForgotPasswordScreen(
+                onBack = {
+                    navController.popBackStack()
+                }
             )
         }
 
-        "tomar_asistencia" -> {
-            TomarAsistenciaScreen(
-                grupoId = grupoSeleccionadoId,
-                nombreGrupo = grupoSeleccionadoNombre,
-                onBack = { pantallaActual = "profesor_detalle" }
+        // =========================
+        // HOME ESCOLAR (ADMIN)
+        // =========================
+
+        composable("home_escolar/{nombreAdmin}") { backStackEntry ->
+
+            val nombreAdmin = backStackEntry.arguments?.getString("nombreAdmin")
+                ?.takeIf { it.isNotBlank() } ?: "Admin"
+
+            HomeEscolarScreen(
+                nombreAdmin = nombreAdmin,
+                onLogout = {
+                    navController.navigate("login") {
+                        popUpTo(0)
+                    }
+                },
+                onVerDetalleGrupo = { grupoId, nombreGrupo ->
+                    // ADMIN → pantalla de gestión de alumnos
+                    navController.navigate("detalle_grupo_admin/$grupoId/$nombreGrupo")
+                }
             )
         }
 
-        "reportes" -> {
-            ReportesScreen(
-                grupoId = grupoSeleccionadoId,
-                nombreGrupo = grupoSeleccionadoNombre,
-                onBack = { pantallaActual = "lista_alumnos_profesor" }
+        // =========================
+        // DETALLE GRUPO ADMIN (agregar alumnos)
+        // =========================
+
+        composable("detalle_grupo_admin/{grupoId}/{nombreGrupo}") { backStackEntry ->
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
+            DetalleGrupoAdminScreen(
+                grupoId = grupoId,
+                nombreGrupo = nombreGrupo,
+                onBack = { navController.popBackStack() }
             )
         }
 
-        // ========== ALUMNO ==========
-        "alumno_home" -> {
+        // =========================
+        // HOME PROFESOR
+        // =========================
+
+        composable("home_profesor/{matricula}/{nombre}") { backStackEntry ->
+
+            val matricula = backStackEntry.arguments?.getString("matricula") ?: ""
+            val nombre = backStackEntry.arguments?.getString("nombre") ?: ""
+
+            HomeProfesorScreen(
+                profesorMatricula = matricula,
+                nombreProfesor = nombre,
+                onGrupoClick = { grupoId, nombreGrupo ->
+                    navController.navigate("detalle_grupo_profesor/$grupoId/$nombreGrupo")
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // =========================
+        // HOME ALUMNO
+        // =========================
+
+        composable("alumno_home/{matricula}/{nombre}") { backStackEntry ->
+
+            val matricula = backStackEntry.arguments?.getString("matricula") ?: ""
+            val nombre = backStackEntry.arguments?.getString("nombre") ?: ""
+
             AlumnoHomeScreen(
-                matriculaAlumno = uidUsuarioGlobal,
-                nombreAlumno = nombreUsuarioGlobal,
+                matriculaAlumno = matricula,
+                nombreAlumno = nombre,
                 onEscanearClick = { grupoId, nombreGrupo ->
-                    grupoSeleccionadoId = grupoId
-                    grupoSeleccionadoNombre = nombreGrupo
-                    pantallaActual = "scanner_alumno"
+                    navController.navigate("scanner/$matricula/$grupoId/$nombreGrupo")
                 },
                 onHistorialClick = { grupoId, nombreGrupo ->
-                    grupoSeleccionadoId = grupoId
-                    grupoSeleccionadoNombre = nombreGrupo
-                    pantallaActual = "historial_asistencia"
+                    navController.navigate("historial/$matricula/$grupoId/$nombreGrupo")
                 },
-                onLogout = { pantallaActual = "login" }
+                onLogout = {
+                    navController.navigate("login") {
+                        popUpTo(0)
+                    }
+                }
             )
         }
 
-        "scanner_alumno" -> {
-            CameraPermissionHandler(
-                onPermissionGranted = {
-                    ScannerScreen(
-                        matriculaAlumno = uidUsuarioGlobal,
-                        grupoIdEsperado = grupoSeleccionadoId,
-                        onSuccess = { pantallaActual = "alumno_home" },
-                        onBack = { pantallaActual = "alumno_home" }
-                    )
+        // =========================
+        // DETALLE GRUPO PROFESOR
+        // =========================
+
+        composable("detalle_grupo_profesor/{grupoId}/{nombreGrupo}") { backStackEntry ->
+
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
+
+            DetalleGrupoProfesorScreen(
+                nombreGrupo = nombreGrupo,
+                onVerAlumnos = {
+                    navController.navigate("lista_alumnos/$grupoId/$nombreGrupo/profesor")
                 },
-                onBack = { pantallaActual = "alumno_home" }
+                onTomarAsistencia = {
+                    navController.navigate("tomar_asistencia/$grupoId/$nombreGrupo")
+                },
+                onVerAsistenciaDia = {
+                    val db = FirebaseFirestore.getInstance()
+                    db.collection("grupos")
+                        .document(grupoId)
+                        .get()
+                        .addOnSuccessListener { doc ->
+                            val fecha = doc.getString("fechaAsistenciaActual") ?: ""
+                            val token = doc.getString("tokenAsistenciaActual") ?: ""
+                            navController.navigate("lista_asistencia_dia/$grupoId/$nombreGrupo?fecha=$fecha&token=$token")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("Navegacion", "Error: ${e.message}")
+                            navController.navigate("lista_asistencia_dia/$grupoId/$nombreGrupo?fecha=&token=")
+                        }
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
             )
         }
 
-        "historial_asistencia" -> {
+        // =========================
+        // LISTA ALUMNOS (solo lectura)
+        // =========================
+
+        composable("lista_alumnos/{grupoId}/{nombreGrupo}/{rol}") { backStackEntry ->
+
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
+            val rol = backStackEntry.arguments?.getString("rol") ?: "profesor"
+
+            ListaAlumnosScreen(
+                grupoId = grupoId,
+                nombreGrupo = nombreGrupo,
+                esAdmin = rol == "admin",
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // =========================
+        // TOMAR ASISTENCIA (profesor)
+        // =========================
+
+        composable("tomar_asistencia/{grupoId}/{nombreGrupo}") { backStackEntry ->
+
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
+
+            TomarAsistenciaScreen(
+                grupoId = grupoId,
+                nombreGrupo = nombreGrupo,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // =========================
+        // SCANNER (alumno)
+        // =========================
+
+        composable("scanner/{matricula}/{grupoId}/{nombreGrupo}") { backStackEntry ->
+
+            val matricula = backStackEntry.arguments?.getString("matricula") ?: ""
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
+
+            ScannerScreen(
+                matriculaAlumno = matricula,
+                grupoIdEsperado = grupoId,
+                onSuccess = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // =========================
+        // HISTORIAL ALUMNO
+        // =========================
+
+        composable("historial/{matricula}/{grupoId}/{nombreGrupo}") { backStackEntry ->
+
+            val matricula = backStackEntry.arguments?.getString("matricula") ?: ""
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
+
             HistorialAsistenciaScreen(
-                matriculaAlumno = uidUsuarioGlobal,
-                grupoId = grupoSeleccionadoId,
-                nombreGrupo = grupoSeleccionadoNombre,
-                onBack = { pantallaActual = "alumno_home" }
+                matriculaAlumno = matricula,
+                grupoId = grupoId,
+                nombreGrupo = nombreGrupo,
+                onBack = { navController.popBackStack() }
             )
         }
-    }
-}
 
-@OptIn(ExperimentalPermissionsApi::class)
-@Composable
-fun CameraPermissionHandler(
-    onPermissionGranted: @Composable () -> Unit,
-    onBack: () -> Unit
-) {
-    val cameraPermissionState = rememberPermissionState(
-        android.Manifest.permission.CAMERA
-    )
+        // =========================
+        // GESTION ALUMNOS (admin) - (obsoleto, se usa DetalleGrupoAdminScreen)
+        // =========================
 
-    if (cameraPermissionState.status.isGranted) {
-        onPermissionGranted()
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("Se necesita la cámara para el QR")
+        composable("gestion_alumnos/{grupoId}/{nombreGrupo}") { backStackEntry ->
 
-            Spacer(modifier = Modifier.padding(8.dp))
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
 
-            Button(onClick = { cameraPermissionState.launchPermissionRequest() }) {
-                Text("Dar permiso")
-            }
+            GestionAlumnosGrupoScreen(
+                grupoId = grupoId,
+                nombreGrupo = nombreGrupo,
+                onBack = { navController.popBackStack() }
+            )
+        }
 
-            TextButton(onClick = onBack) {
-                Text("Regresar")
-            }
+        // =========================
+        // REPORTES
+        // =========================
+
+        composable("reportes/{grupoId}/{nombreGrupo}") { backStackEntry ->
+
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
+
+            ReportesScreen(
+                grupoId = grupoId,
+                nombreGrupo = nombreGrupo,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // =========================
+        // LISTA ASISTENCIA DIA (profesor)
+        // =========================
+
+        composable(
+            route = "lista_asistencia_dia/{grupoId}/{nombreGrupo}?fecha={fecha}&token={token}",
+            arguments = listOf(
+                navArgument("grupoId") { type = NavType.StringType },
+                navArgument("nombreGrupo") { type = NavType.StringType },
+                navArgument("fecha") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = ""
+                },
+                navArgument("token") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+
+            val grupoId = backStackEntry.arguments?.getString("grupoId") ?: ""
+            val nombreGrupo = backStackEntry.arguments?.getString("nombreGrupo") ?: ""
+            val fecha = backStackEntry.arguments?.getString("fecha") ?: ""
+            val token = backStackEntry.arguments?.getString("token") ?: ""
+
+            ListaAsistenciaDiaProfesorScreen(
+                grupoId = grupoId,
+                nombreGrupo = nombreGrupo,
+                fechaSesion = fecha,
+                token = token,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }

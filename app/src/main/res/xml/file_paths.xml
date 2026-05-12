@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Para archivos en el caché interno (usado en exportaciones) -->
+    <cache-path
+        name="cache"
+        path="/" />
+
+    <!-- Para archivos en el directorio de archivos internos -->
+    <files-path
+        name="files"
+        path="/" />
+
+    <!-- Si necesitas específicamente la carpeta reportes -->
     <cache-path
         name="reportes"
         path="reportes/" />
+
+    <cache-path
+        name="asistencias"
+        path="asistencias/" />
 </paths>

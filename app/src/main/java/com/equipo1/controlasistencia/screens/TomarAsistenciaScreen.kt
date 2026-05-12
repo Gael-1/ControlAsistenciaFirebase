@@ -40,7 +40,7 @@ fun TomarAsistenciaScreen(
 
     fun actualizarToken(nuevoToken: String) {
         asistenciaRepository.actualizarTokenAsistencia(grupoId, nuevoToken, fechaHoy) { success ->
-            if (!success) Toast.makeText(context, "Error de sincronización", Toast.LENGTH_SHORT).show()
+            if (!success) Toast.makeText(context, "Error al guardar QR", Toast.LENGTH_SHORT).show()
         }
     }
 
