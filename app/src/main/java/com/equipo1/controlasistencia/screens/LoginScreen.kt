@@ -1,14 +1,35 @@
 package com.equipo1.controlasistencia.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,6 +41,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.equipo1.controlasistencia.repository.AuthRepository
 
+private enum class TipoLogin(
+    val titulo: String,
+    val etiqueta: String,
+    val ejemplo: String,
+    val tipoAcceso: String
+) {
+    ALUMNO(
+        titulo = "Alumno",
+        etiqueta = "Matrícula",
+        ejemplo = "Ej. 2022477",
+        tipoAcceso = AuthRepository.TIPO_ALUMNO
+    ),
+    EMPLEADO(
+        titulo = "Empleado",
+        etiqueta = "Número de socio",
+        ejemplo = "Ej. 150504",
+        tipoAcceso = AuthRepository.TIPO_EMPLEADO
+    )
+}
+
 @Composable
 fun LoginScreen(
     onLoginSuccess: (String, String, String) -> Unit, // (rol, nombre, uid)
@@ -27,7 +68,8 @@ fun LoginScreen(
 ) {
     val authRepository = remember { AuthRepository() }
 
-    var matriculaInput by remember { mutableStateOf("") }
+    var identificadorInput by remember { mutableStateOf("") }
+    var tipoLogin by remember { mutableStateOf(TipoLogin.ALUMNO) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(false) }
@@ -52,6 +94,7 @@ fun LoginScreen(
                 letterSpacing = 4.sp,
                 color = Color.Gray
             )
+
             Text(
                 text = "Asistencia",
                 style = MaterialTheme.typography.headlineLarge,
@@ -61,15 +104,69 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(64.dp))
 
-            // Campo de matrícula
+            Text(
+                text = "Tipo de acceso",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.DarkGray,
+                modifier = Modifier.align(Alignment.Start)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                TipoLogin.values().forEach { tipo ->
+                    val seleccionado = tipoLogin == tipo
+                    val botonModifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+
+                    if (seleccionado) {
+                        Button(
+                            onClick = {
+                                tipoLogin = tipo
+                                identificadorInput = ""
+                                errorMsg = ""
+                            },
+                            modifier = botonModifier,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
+                        ) {
+                            Text(tipo.titulo, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = {
+                                tipoLogin = tipo
+                                identificadorInput = ""
+                                errorMsg = ""
+                            },
+                            modifier = botonModifier,
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text(
+                                text = tipo.titulo,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             OutlinedTextField(
-                value = matriculaInput,
+                value = identificadorInput,
                 onValueChange = {
-                    matriculaInput = it
+                    identificadorInput = it
                     errorMsg = ""
                 },
-                label = { Text("Matrícula") },
-                placeholder = { Text("Ej. 2022477") },
+                label = { Text(tipoLogin.etiqueta) },
+                placeholder = { Text(tipoLogin.ejemplo) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
@@ -84,7 +181,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo de contraseña
             OutlinedTextField(
                 value = password,
                 onValueChange = {
@@ -95,14 +191,31 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                visualTransformation = if (passwordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
-                    val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-                    val description = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
+                    val image = if (passwordVisible) {
+                        Icons.Filled.Visibility
+                    } else {
+                        Icons.Filled.VisibilityOff
+                    }
+
+                    val description = if (passwordVisible) {
+                        "Ocultar contraseña"
+                    } else {
+                        "Mostrar contraseña"
+                    }
 
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(imageVector = image, contentDescription = description, tint = Color.Gray)
+                        Icon(
+                            imageVector = image,
+                            contentDescription = description,
+                            tint = Color.Gray
+                        )
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -126,20 +239,23 @@ fun LoginScreen(
 
             Button(
                 onClick = {
-                    if (matriculaInput.isNotBlank() && password.isNotBlank()) {
+                    if (identificadorInput.isNotBlank() && password.isNotBlank()) {
                         cargando = true
                         errorMsg = ""
 
-                        authRepository.login(matriculaInput, password) { success, mensaje, rol, nombre, uid ->
+                        authRepository.login(
+                            identificador = identificadorInput.trim(),
+                            password = password,
+                            tipoAcceso = tipoLogin.tipoAcceso
+                        ) { success, mensaje, rol, nombre, uid ->
                             cargando = false
+
                             if (success) {
-                                // --- CORRECCIÓN: Validar nombre para admin ---
-                                val rolFinal = rol ?: "alumno"
-                                var nombreFinal = nombre ?: "Usuario"
-                                if (rolFinal == "admin" && nombreFinal.isBlank()) {
-                                    nombreFinal = "Admin"
-                                }
-                                onLoginSuccess(rolFinal, nombreFinal, uid ?: "")
+                                onLoginSuccess(
+                                    rol ?: "alumno",
+                                    nombre ?: "Usuario",
+                                    uid ?: ""
+                                )
                             } else {
                                 errorMsg = mensaje ?: "Credenciales incorrectas"
                             }
@@ -156,9 +272,16 @@ fun LoginScreen(
                 enabled = !cargando
             ) {
                 if (cargando) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(24.dp),
+                        color = Color.White
+                    )
                 } else {
-                    Text("Entrar", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        text = "Entrar",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
                 }
             }
 
