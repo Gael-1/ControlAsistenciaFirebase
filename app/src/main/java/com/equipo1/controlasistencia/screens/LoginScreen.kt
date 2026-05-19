@@ -286,14 +286,6 @@ fun LoginScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-
-            TextButton(onClick = onNavigateToForgotPassword) {
-                Text(
-                    "¿Olvidaste tu contraseña?",
-                    color = Color(0xFF007AFF),
-                    fontWeight = FontWeight.Medium
-                )
-            }
         }
     }
 }

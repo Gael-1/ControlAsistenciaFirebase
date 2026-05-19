@@ -309,7 +309,7 @@ class AuthRepository {
         val nombre = partes[0]
         val dominio = partes[1]
 
-        return if (nombre.le ngth > 3) {
+        return if (nombre.length > 3) {
             "${nombre.take(2)}***${nombre.takeLast(1)}@$dominio"
         } else {
             "${nombre.first()}***@$dominio"

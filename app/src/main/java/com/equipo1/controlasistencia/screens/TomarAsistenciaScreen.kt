@@ -74,7 +74,7 @@ fun TomarAsistenciaScreen(
                     tokenDinamico = nuevoToken
                     actualizarToken(nuevoToken)
                 },
-                containerColor = Color.Black,
+                containerColor = Color.Gray,
                 shape = RoundedCornerShape(20.dp),
                 icon = { Icon(Icons.Default.Refresh, null) },
                 text = { Text("Renovar QR", fontWeight = FontWeight.Bold) }

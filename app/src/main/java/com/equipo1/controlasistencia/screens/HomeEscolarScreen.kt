@@ -349,11 +349,11 @@ fun HomeEscolarScreen(
                         // =========================
                         // BUSCAR PROFESOR
                         // =========================
-
+                        // 🔧 SOLO CAMBIÉ ESTA LÍNEA: "matricula" → "numeroSocio"
                         db.collection("usuarios")
 
                             .whereEqualTo(
-                                "matricula",
+                                "numeroSocio",  // ← ANTES ERA "matricula", AHORA ES "numeroSocio"
                                 profesorNum
                             )
 
@@ -368,7 +368,7 @@ fun HomeEscolarScreen(
                                 if (snapshot.isEmpty) {
 
                                     errorProfesor =
-                                        "Matrícula de profesor no registrada"
+                                        "Número de socio no registrado"  // ← También cambié el mensaje
 
                                     return@addOnSuccessListener
                                 }
@@ -473,7 +473,7 @@ fun HomeEscolarScreen(
                 Column {
 
                     Text(
-                        "Vincula una materia con un profesor mediante su matrícula numérica.",
+                        "Vincula una materia con un profesor mediante su numero de socio.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
@@ -512,7 +512,7 @@ fun HomeEscolarScreen(
                     Spacer(Modifier.height(12.dp))
 
                     // =========================
-                    // MATRICULA
+                    // NUMERO DE SOCIO
                     // =========================
 
                     OutlinedTextField(
@@ -526,11 +526,11 @@ fun HomeEscolarScreen(
                         },
 
                         label = {
-                            Text("Matrícula del Profesor")
+                            Text("numero de socio del Profesor")
                         },
 
                         placeholder = {
-                            Text("Ej. 2022466")
+                            Text("Ej. 150510")  // ← Cambié el ejemplo a 150510
                         },
 
                         shape = RoundedCornerShape(14.dp),
